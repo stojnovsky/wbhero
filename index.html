@@ -1,0 +1,1164 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Уж Герой</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Fira+Sans+Condensed:ital,wght@0,500;0,700;1,500&display=swap">
+<style>
+  /* Layout: one arcade cabinet — marquee header, the game screen with overlays, a control legend. Sky-blue voxel world at night-purple chrome. */
+  :root {
+    --night: #120c2b;
+    --dusk: #21184a;
+    --line: #3d2f78;
+    --neon: #c04cff;
+    --lime: #8ee03a;
+    --sky: #2f86ea;
+    --gold: #ffcc33;
+    --paper: #f7f4ff;
+    --muted: #b9b0e0;
+    --scrim: rgba(18, 12, 43, 0.8);
+    --display: 'Russo One', Impact, 'Arial Black', sans-serif;
+    --body: 'Fira Sans Condensed', 'Arial Narrow', 'Helvetica Neue', sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--night); color: var(--paper); font-family: var(--body); font-size: 18px; line-height: 1.35; }
+  [hidden] { display: none !important; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 28px; display: flex; flex-direction: column; gap: 14px; }
+  header { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; }
+  h1 { font-family: var(--display); font-weight: 400; font-size: clamp(28px, 5.4vw, 50px); margin: 0; line-height: 0.95; color: var(--gold); text-shadow: 3px 3px 0 var(--neon); }
+  .sub { margin: 4px 0 0; color: var(--muted); font-style: italic; font-size: 18px; }
+  .tools { display: flex; gap: 8px; }
+  .tool { font: 700 15px var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--paper); background: var(--dusk); border: 2px solid var(--line); border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+  .tool:hover { border-color: var(--muted); }
+  button:focus-visible { outline: 3px solid var(--lime); outline-offset: 2px; }
+
+  .stage { position: relative; border: 3px solid var(--paper); border-radius: 6px; overflow: hidden; box-shadow: 6px 6px 0 var(--neon); background: var(--sky); }
+  #game { display: block; width: 100%; aspect-ratio: 960 / 440; touch-action: manipulation; cursor: pointer; }
+
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; background: var(--scrim); text-align: center; overflow: auto; }
+  .overlay h2 { font-family: var(--display); font-weight: 400; font-size: clamp(22px, 3.6vw, 34px); margin: 0; color: var(--paper); text-wrap: balance; line-height: 1.05; }
+  .overlay h2 em { font-style: normal; color: var(--gold); }
+  .eyebrow { margin: 0; font-weight: 700; font-size: 14px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--lime); }
+  .hint { margin: 0; color: var(--muted); font-size: 16px; }
+
+  .splash { justify-content: flex-end; padding-block: 16px 22px; cursor: pointer;
+    background: linear-gradient(180deg, rgba(18,12,43,0) 45%, rgba(18,12,43,0.92) 100%), url("assets/splash.jpg") center 18% / cover no-repeat, var(--sky); }
+  .splash .logo { font-size: clamp(30px, 6vw, 64px); color: var(--gold); text-shadow: 4px 4px 0 var(--neon), -2px -2px 0 var(--night); }
+  .splash p { margin: 0; font-size: clamp(16px, 2.2vw, 22px); font-style: italic; text-shadow: 0 2px 6px var(--night); }
+  .blink { animation: blink 1.1s steps(2, start) infinite; }
+  @keyframes blink { to { visibility: hidden; } }
+
+  .heroes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; width: min(700px, 100%); }
+  .card { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 12px; align-items: center; text-align: left; padding: 10px 12px 10px 8px; background: var(--dusk); color: var(--paper); font: inherit; border: 3px solid var(--line); border-radius: 6px; cursor: pointer; transition: transform .12s, border-color .12s; }
+  .card:hover { border-color: var(--muted); }
+  .card[aria-pressed="true"] { border-color: var(--gold); box-shadow: 4px 4px 0 var(--neon); transform: translate(-2px, -2px); }
+  .card canvas { width: 104px; height: 104px; border-radius: 4px; background: var(--sky); }
+  .card .info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .card h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 17px; color: var(--gold); line-height: 1.1; }
+  .card .key { font-family: var(--body); font-size: 13px; color: var(--muted); letter-spacing: 0.1em; }
+  .card p { margin: 0; font-size: 15px; color: var(--muted); font-style: italic; line-height: 1.2; }
+  .stat { display: grid; grid-template-columns: 84px minmax(0, 1fr); align-items: center; gap: 6px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+  .pips { display: flex; gap: 3px; }
+  .pips i { width: 12px; height: 8px; border-radius: 2px; background: var(--line); }
+  .pips i.on { background: var(--lime); }
+
+  .btn { font-family: var(--display); font-size: 18px; color: var(--night); background: var(--gold); border: 3px solid var(--paper); border-radius: 4px; padding: 10px 22px; cursor: pointer; box-shadow: 4px 4px 0 var(--neon); }
+  .btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--neon); }
+  .btn.ghost { background: var(--dusk); color: var(--paper); }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  .roast { margin: 0; max-width: 34em; font-size: 21px; font-style: italic; color: var(--paper); text-wrap: balance; }
+  .stats { display: flex; gap: 10px 26px; flex-wrap: wrap; justify-content: center; margin: 0; }
+  .stats div { display: flex; flex-direction: column; }
+  .stats dt { font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .stats dd { margin: 0; font-family: var(--display); font-size: 22px; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+  .touch { display: none; grid-template-columns: 1fr 2fr; gap: 12px; }
+  .touch button { font-family: var(--display); font-size: 20px; padding: 18px 0; border-radius: 6px; border: 3px solid var(--paper); color: var(--night); background: var(--lime); touch-action: none; user-select: none; -webkit-user-select: none; }
+  .touch button.jump { background: var(--gold); }
+  @media (pointer: coarse) { .touch { display: grid; } }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 16px; }
+  kbd { font: 700 13px var(--body); color: var(--paper); background: var(--dusk); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 4px; padding: 1px 7px; margin-right: 4px; }
+
+  @media (max-width: 760px) {
+    .overlay { position: static; background: var(--night); border-top: 3px solid var(--paper); padding-block: 18px; }
+    .overlay.splash { position: absolute; border-top: 0; }
+  }
+  @media (max-width: 520px) { .heroes { grid-template-columns: minmax(0, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { .card, .btn { transition: none; } .blink { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Уж Герой</h1>
+      <p class="sub">Бягай от дронове, лодки и наркобосове. Коленичи и целуни светите ръце, когато Бог слезе. Изборите са в неделя. Пак.</p>
+    </div>
+    <div class="tools">
+      <button class="tool" id="soundBtn" type="button" aria-pressed="true">Звук: вкл</button>
+      <button class="tool" id="pauseBtn" type="button">Пауза</button>
+    </div>
+  </header>
+
+  <div class="stage">
+    <canvas id="game" aria-label="Игрален екран"></canvas>
+
+    <div class="overlay splash" id="splash">
+      <h2 class="logo">Уж Герой</h2>
+      <p>Двама героя. Едно наметало. Нула рейтинг.</p>
+      <button class="btn blink" id="splashBtn" type="button">Старт</button>
+    </div>
+
+    <div class="overlay" id="menu" hidden>
+      <p class="eyebrow">Кастинг за кандидати</p>
+      <h2>Избери своя <em>„герой“</em></h2>
+      <div class="heroes">
+        <button class="card" type="button" data-hero="cape" aria-pressed="true">
+          <canvas width="208" height="208" data-preview="cape"></canvas>
+          <span class="info">
+            <h3>Капитан Бляскав <span class="key">[1]</span></h3>
+            <span class="stat">Мълчание <span class="pips" data-pips="5"></span></span>
+            <span class="stat">Наметало <span class="pips" data-pips="5"></span></span>
+            <span class="stat">Коса <span class="pips" data-pips="0"></span></span>
+            <p>Носи наметало, никога не е летял. Обещава всичко, изпълнява само скокове.</p>
+          </span>
+        </button>
+        <button class="card" type="button" data-hero="hair" aria-pressed="false">
+          <canvas width="208" height="208" data-preview="hair"></canvas>
+          <span class="info">
+            <h3>Мадам Смелост <span class="key">[2]</span></h3>
+            <span class="stat">Скок <span class="pips" data-pips="5"></span></span>
+            <span class="stat">Смелост <span class="pips" data-pips="1"></span></span>
+            <span class="stat">Лак <span class="pips" data-pips="5"></span></span>
+            <p>Троен скок с три кутии лак на ден. Прическата има отделен рейтинг.</p>
+          </span>
+        </button>
+      </div>
+      <button class="btn" id="startBtn" type="button">Към урните!</button>
+      <p class="hint">Натисни 1 или 2 за избор, Enter за старт</p>
+    </div>
+
+    <div class="overlay" id="pausedOv" hidden>
+      <p class="eyebrow">Пауза</p>
+      <h2>Предизборно мълчание. Наркобосовете са в почивка за цигара.</h2>
+      <button class="btn" id="resumeBtn" type="button">Продължи</button>
+    </div>
+
+    <div class="overlay" id="overOv" hidden>
+      <p class="eyebrow">Протокол на СИК</p>
+      <h2 id="overTitle">Загуба на <em>изборите</em></h2>
+      <p class="roast" id="roast"></p>
+      <dl class="stats">
+        <div><dt>Разстояние</dt><dd id="stDist">0 м</dd></div>
+        <div><dt>Рекорд</dt><dd id="stBest">0 м</dd></div>
+        <div><dt>Гласове</dt><dd id="stRings">0</dd></div>
+        <div><dt>Рейтинг</dt><dd id="stDig">100%</dd></div>
+        <div><dt>Целунати ръце</dt><dd id="stGod">0</dd></div>
+      </dl>
+      <div class="row">
+        <button class="btn" id="retryBtn" type="button">Пак на избори</button>
+        <button class="btn ghost" id="swapBtn" type="button">Смени кандидата</button>
+      </div>
+      <p class="hint">Enter за нови избори</p>
+    </div>
+  </div>
+
+  <div class="touch">
+    <button type="button" id="duckBtn">Клек</button>
+    <button type="button" id="jumpBtn" class="jump">Скок</button>
+  </div>
+
+  <ul class="legend">
+    <li><kbd>Space</kbd><kbd>↑</kbd>скок (пак във въздуха за още скокове)</li>
+    <li><kbd>↓</kbd>клякане</li>
+    <li><kbd>←</kbd><kbd>→</kbd>движение</li>
+    <li><kbd>P</kbd>пауза</li>
+    <li><kbd>M</kbd>звук</li>
+  </ul>
+</div>
+
+<script>
+(() => {
+  const W = 960, H = 440, GROUND = 372;
+  const cvs = document.getElementById('game');
+  const ctx = cvs.getContext('2d');
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let dpr = 1;
+  function resize() { dpr = Math.min(2, window.devicePixelRatio || 1); cvs.width = W * dpr; cvs.height = H * dpr; }
+  resize(); addEventListener('resize', resize);
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const ease = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+  const hash = i => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+  const FONT_D = "'Russo One', Impact, 'Arial Black', sans-serif";
+  const FONT_B = "'Fira Sans Condensed', 'Arial Narrow', sans-serif";
+  const C = { night: '#120c2b', neon: '#c04cff', lime: '#8ee03a', gold: '#ffcc33', paper: '#f7f4ff', muted: '#b9b0e0', red: '#ff3b5c' };
+
+  // ---------- images (from the segments folder) ----------
+  const SRC = {
+    cape: 'assets/bald-man.png', hair: 'assets/woman-with-brown-hair.png', capeCloth: 'assets/red-cape.png',
+    godMan: 'assets/god/elderly-man.png', godThrone: 'assets/god/ornate-throne.png', godTable: 'assets/god/marble-table.png', godCrystal: 'assets/god/black-crystal.png',
+    godHands: 'assets/god/clasped-hands.png', godClouds: 'assets/god/clouds.png', godWing: 'assets/god/wing.png', godHolo: 'assets/god/hologram.png', godVeil: 'assets/god/white-veil.png', godSky: 'assets/god/starry-sky.png',
+    watcher: 'assets/watcher.png',
+    ring: 'assets/golden-ring.png', cube: 'assets/checkered-cube.png', platform: 'assets/green-platform.png', cloud: 'assets/white-clouds.png',
+  };
+  const IMG = {};
+  for (const k in SRC) { const i = new Image(); i.src = SRC[k]; IMG[k] = i; }
+  const ready = i => i && i.complete && i.naturalWidth > 0;
+
+  // ---------- heroes ----------
+  const HEROES = {
+    cape: { name: 'Капитан Бляскав', jumpV: 900, grav: 2700, air: 2, h: 80 },
+    hair: { name: 'Мадам Смелост', jumpV: 860, grav: 2000, air: 3, h: 84 },
+  };
+  // sprite size on screen + where the face sits inside the cutout (fractions of the image)
+  const SPR = {
+    cape: { h: 132, face: [0.68, 0.14], neck: [0.63, 0.18] },
+    hair: { h: 140, face: [0.55, 0.15] },
+  };
+
+  // ---------- copy ----------
+  const NARR = {
+    start: ['{n} започва предизборната кампания. Очаквания: ниски.', '{n} бяга от отговорност. Отговорността бяга по-бързо.', 'Ето го кандидата. Не се привързвайте, мандатът е кратък.'],
+    jump: ['Скок. Като обещанията: високо, но за кратко.', 'Гравитацията не гласува за {n}.', 'По-висок скок от избирателната активност. Браво.', '{n} скача като цените след изборите.', 'Скок в рейтинга? Не, просто скок.', 'Въздушно време: кратко. Като коалиция.'],
+    duck: ['{n} се скрива. Като от журналистите.', 'Клекна. Като пред партийното ръководство.', 'Ниско. Като рейтинга.'],
+    near: ['Късмет. Не умение. Късмет.', '{n} оцеля случайно. Като служебно правителство.', 'На косъм. Ще го обявят за успех на кабинета.', 'Дори {n} изглежда изненадано.'],
+    milestone: ['{m} метра! Повече, отколкото е изминала съдебната реформа.', '{m} метра. ЦИК още брои.', '{m} метра. Според социолозите, статистически незначимо.', '{m} метра. Опозицията твърди, че са 12.', '{m} метра. Колкото и изборите тази година. Почти.'],
+    rings: ['{n} събира гласове. Някои дори са истински.', 'Още гласове! ЦИК ще ги намери след седмица.'],
+    boss: ['О, не. Човек с повече злато, отколкото срам.', 'Пристига спонсорът на кампанията.', 'Наркобос. {n} вече съжалява, че няма охрана от НСО.'],
+    afterGod: ['{n} се изправя. Рейтингът не.', 'Обратно в кампанията. С благословия и червило.', 'Някъде в Синода някой направи скрийншот.'],
+    noDignity: ['Рейтинг 0%. Отключено постижение: Под бариерата.'],
+  };
+  const GOD_PAIRS = {
+    cape: [
+      ['Капитане, наметалото не е предизборна програма.', 'Но е червено, Господи. Хората харесват червено.'],
+      ['Главата ти блести повече от обещанията ти.', 'Полирам я преди всеки дебат, Господи.'],
+      ['Чедо, за втори мандат се моли на избирателите, не на Мен.', 'Те не вдигат телефона, Господи.'],
+      ['Целуни ръката. Гласовете ще ги броим после. Машинно.', 'Машините пак ли са развалени, Господи?'],
+      ['Кристалът Ми знае резултата. Ти не искаш да го знаеш.', 'Поне над бариерата ли съм, Господи?'],
+      ['Обеща да бориш корупцията. Тук горе още се смеем.', 'Беше предизборно, Господи. Не се брои.'],
+    ],
+    hair: [
+      ['Чедо, прическата ти има по-висок рейтинг от теб.', 'Тя ще се кандидатира следващия път, Господи.'],
+      ['На билбордовете изглеждаш с 20 години по-млада.', 'Фотошопът е част от програмата, Господи.'],
+      ['Защо тичаш? Изборите не са маратон.', 'За нас са, Господи. Това са седмите поред.'],
+      ['Целуни ръката и кажи „амин“ на бюджета.', 'Амин! …Какъв бюджет?'],
+      ['Колко лак изхарчи за кампанията?', 'Това е тайна, Господи. Като финансирането.'],
+      ['Кристалът Ми предсказва балотаж.', 'Само да не е с Капитана, Господи.'],
+    ],
+  };
+  const GOD_PARTING = ['Стани, чедо. Бавно. Снимам за фейсбук.', 'Върви. И не Ме слагай на предизборните плакати.', 'Благославям те. До втори тур.', 'Следващия път по-малко червило по ръката Ми.', 'Ще гласувам за теб. Шегувам се. Аз не гласувам, Аз решавам.'];
+  const BOSS_NAMES = ['Дон Корупционе', 'Бай Кюлчо', 'Шефа Мутров', 'Боби Кеша'];
+  const BOSS_HELLO = {
+    any: ['Колко струва един глас днес? Питам за приятел.', 'Имам 40 лодки, 12 тигъра и нула уважение към теб.', 'Дръж! Това е дарение за кампанията.', 'Купих три партии. Ти си на разпродажба.'],
+    cape: ['Хубаво наметало, кандидате. Има ли го за възрастни?', 'Сложи шапка. Главата ти заслепява снайперистите ми.'],
+    hair: ['Мадам, прическата ви събори охраната ми.'],
+  };
+  const BOSS_BYE = ['Ай, имам маникюр. Чао!', 'Под нивото ми си. Буквално, долу си.', 'Задръж рестото. Ще го водим дарение.'];
+  const ROASTS = {
+    drone: ['Свален от дрон с размер на сандвич. МВнР изпраща протестна нота.', 'Заснет в 4K. Клипът събра повече гласове от теб.'],
+    ship: ['Прегазен от моторница. На сушата. Ще има временна анкетна комисия.', 'Лодка. На колела. А {n} пак не я видя. Като инфлацията.'],
+    cube: ['Спънат от кутия. Оказа се избирателна урна. Иронично.'],
+    bar: ['Спънат от златно кюлче. Най-богатото падане в кариерата на {n}.'],
+    bag: ['Торба пари в лицето. Първото дарение за кампанията.'],
+  };
+  const HERO_TAG = {
+    cape: ['Наметалото оцеля. Капитанът не.', 'Наметалото вече си търси нов кандидат.'],
+    hair: ['Прическата се приземи три секунди по-късно.', 'Лакът издържа. Коалицията не.'],
+  };
+  const WATCH = {
+    hello: ['Не ми обръщай внимание. Аз съм само наблюдател.', 'Продължавай. Аз просто гледам. Внимателно.', 'Изборите са свободни. Аз само проверявам резултата.', 'Скачай. Аз ще кажа колко високо.'],
+    good: ['Добре. Действаш по плана.', 'Одобрено. Може да продължиш да мислиш, че решаваш ти.', 'Харесва ми. Ще бъдеш отличен с медал „Послушание“.'],
+    bad: ['Разочарован съм. Ще ти се обадя.', 'Това не беше по сценария.', 'Ще помислим за друг кандидат.'],
+    narr: ['{n} внезапно започна да скача по-старателно.', 'Международен наблюдател. Съвсем случайно точно този.', '{n} се поти. Социолозите отчитат ръст на изпотяването.'],
+  };
+  const SHOUTS = ['ПАЗЕТЕ КИРИЛИЦАТА!', 'НЕ НА АРАБСКИТЕ ЦИФРИ!', 'НИЕ СМЕ ЗА МИР!'];
+  const SHOUT_NARR = {
+    'ПАЗЕТЕ КИРИЛИЦАТА!': ['{n} пази кирилицата. Латиницата е в паника.', 'Кирилицата е спасена. Правописът още не.'],
+    'НЕ НА АРАБСКИТЕ ЦИФРИ!': ['Разстоянието вече е в римски цифри. Победа.', 'Арабските цифри са изгонени. Сметките пак не излизат.'],
+    'НИЕ СМЕ ЗА МИР!': ['{n} е за мир. Дроновете не са информирани.', 'Мир! Каза го, докато бяга от дронове.'],
+  };
+  const OVER_TITLES = ['Загуба на <em>изборите</em>', 'Герой? <em>Уж.</em>', 'Балотаж <em>с гравитацията</em>', 'ЦИК обяви: <em>край</em>'];
+
+  // ---------- audio ----------
+  const sfx = {
+    on: true, ac: null,
+    init() {
+      if (!this.ac) { try { this.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { this.ac = null; } }
+      if (this.ac && this.ac.state === 'suspended') this.ac.resume().catch(() => {});
+    },
+    tone(f1, f2, dur, type = 'square', vol = 0.06, delay = 0) {
+      if (!this.on || !this.ac) return;
+      const t0 = this.ac.currentTime + delay;
+      const o = this.ac.createOscillator(), g = this.ac.createGain();
+      o.type = type; o.frequency.setValueAtTime(f1, t0);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + dur);
+      g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g).connect(this.ac.destination); o.start(t0); o.stop(t0 + dur + 0.03);
+    },
+    pad(f, dur, delay, vol = 0.035) {
+      if (!this.on || !this.ac) return;
+      const t0 = this.ac.currentTime + delay;
+      const o = this.ac.createOscillator(), g = this.ac.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.8);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g).connect(this.ac.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+    },
+    jump() { this.tone(300, 640, 0.14, 'square', 0.05); },
+    jump2() { this.tone(480, 960, 0.12, 'square', 0.045); },
+    spray() { this.tone(3000, 1800, 0.25, 'sawtooth', 0.02); },
+    throw() { this.tone(700, 260, 0.14, 'triangle', 0.06); },
+    near() { this.tone(1100, 1500, 0.06, 'triangle', 0.035); },
+    ring() { this.tone(1320, 0, 0.06, 'square', 0.03); this.tone(1760, 0, 0.1, 'square', 0.03, 0.05); },
+    ding() { this.tone(660, 0, 0.1, 'square', 0.04); this.tone(990, 0, 0.16, 'square', 0.04, 0.1); },
+    kiss() { this.tone(1500, 2400, 0.07, 'sine', 0.07); this.tone(1700, 2600, 0.07, 'sine', 0.06, 0.12); },
+    trombone() { [392, 370, 349, 330].forEach((f, i) => this.tone(f, i === 3 ? f * 0.92 : f * 0.99, i === 3 ? 1.0 : 0.3, 'sawtooth', 0.06, i * 0.34)); },
+    choir() { [261.6, 329.6, 392, 523.3, 659.3].forEach((f, i) => this.pad(f, 8, i * 0.12)); },
+  };
+
+  // ---------- state ----------
+  let mode = 'splash', prevMode = 'play';
+  let heroKey = 'cape';
+  let best = { cape: 0, hair: 0 };
+  try { const s = JSON.parse(localStorage.getItem('hero-allegedly-best-v2') || 'null'); if (s) best = Object.assign(best, s); } catch (e) {}
+  let watcher, nextWatch, shout, nextShout, romanT, hero, obstacles, rings, particles, floaters, speed, dist, time, nextSpawn, nextGod, nextBoss, boss, god, dignity, shake, invuln, milestone, caption, godVisits, ringCount, deathT, deathCause, scroll = 0, narrCooldown, saidNoDignity, saidRings;
+  const keys = { left: false, right: false, down: false };
+
+  const fmt = s => s.replaceAll('{n}', HEROES[heroKey].name).replaceAll('{m}', String(milestone));
+
+  function reset() {
+    hero = { x: 180, y: GROUND, vy: 0, onGround: true, jumps: 0, coyote: 0, duck: false, t: 0, spin: 0 };
+    obstacles = []; rings = []; particles = []; floaters = [];
+    speed = 380; dist = 0; time = 0; nextSpawn = 1.6;
+    nextGod = rand(14, 24); nextBoss = rand(28, 40);
+    boss = null; god = null; dignity = 100; shake = 0; invuln = 0; ringCount = 0;
+    watcher = null; nextWatch = rand(20, 30); shout = null; nextShout = rand(6, 10); romanT = 0;
+    milestone = 250; caption = null; godVisits = 0; deathT = 0; narrCooldown = 0; saidNoDignity = false; saidRings = false;
+  }
+  reset();
+
+  function narrate(text, force) {
+    if (!force && narrCooldown > 0) return;
+    caption = { text: fmt(text), t: 0, life: 3 };
+    narrCooldown = 4;
+  }
+  function floater(text, x, y, color = C.gold, size = 18) { floaters.push({ text, x, y, color, size, t: 0, life: 1.3 }); }
+  function burst(x, y, n, color, spd = 220, grav = 600, size = 4) {
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, Math.PI * 2), v = rand(spd * 0.3, spd);
+      particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 80, life: rand(0.4, 0.9), t: 0, color, size: rand(size * 0.5, size), grav });
+    }
+  }
+
+  // ---------- controls ----------
+  function jump() {
+    if (mode !== 'play' || (watcher && watcher.t < WATCH_FREEZE)) return;
+    const hd = HEROES[heroKey];
+    if (hero.onGround || hero.coyote > 0) {
+      hero.vy = -hd.jumpV; hero.jumps = 1; hero.onGround = false; hero.coyote = 0;
+      sfx.jump(); burst(hero.x, GROUND, 6, '#c8f58a', 120, 400, 4);
+      if (Math.random() < 0.22) narrate(pick(NARR.jump));
+    } else if (hero.jumps < hd.air) {
+      hero.jumps++;
+      hero.vy = -hd.jumpV * 0.82;
+      if (heroKey === 'hair') {
+        sfx.spray();
+        burst(hero.x - 6, hero.y - 100, 12, 'rgba(255,255,255,0.8)', 110, -30, 7);
+        floater(hero.jumps === 3 ? 'МАКСИМАЛЕН ОБЕМ' : 'ЛАК-БУСТ!', hero.x, hero.y - 135, '#ffe9a8', 16);
+      } else {
+        sfx.jump2();
+        floater(pick(['ПРЕДИЗБОРЕН СКОК!', 'АЕРОДИНАМИКА!', 'СУПЕР… ГОРЕ-ДОЛУ']), hero.x, hero.y - 130);
+      }
+    }
+  }
+  function releaseJump() { if (mode === 'play' && hero.vy < -300) hero.vy *= 0.55; }
+
+  addEventListener('keydown', e => {
+    const k = e.key;
+    if (mode === 'splash') { if (k === 'Enter' || k === ' ') { e.preventDefault(); toMenu(); } return; }
+    if (mode === 'menu') {
+      if (k === '1') selectHero('cape');
+      if (k === '2') selectHero('hair');
+      if (k === 'Enter') { e.preventDefault(); startGame(); }
+      return;
+    }
+    if (mode === 'over') { if (k === 'Enter') { e.preventDefault(); startGame(); } return; }
+    if ([' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) e.preventDefault();
+    if ((k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') && !e.repeat) jump();
+    if (k === 'ArrowDown' || k === 's' || k === 'S') keys.down = true;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.left = true;
+    if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.right = true;
+    if (k === 'p' || k === 'P' || k === 'Escape') togglePause();
+    if (k === 'm' || k === 'M') toggleSound();
+  });
+  addEventListener('keyup', e => {
+    const k = e.key;
+    if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W') releaseJump();
+    if (k === 'ArrowDown' || k === 's' || k === 'S') keys.down = false;
+    if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.left = false;
+    if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.right = false;
+  });
+  cvs.addEventListener('pointerdown', e => { if (mode === 'play') { e.preventDefault(); jump(); } });
+  cvs.addEventListener('pointerup', releaseJump);
+  const jumpBtn = document.getElementById('jumpBtn'), duckBtn = document.getElementById('duckBtn');
+  jumpBtn.addEventListener('pointerdown', e => { e.preventDefault(); sfx.init(); jump(); });
+  jumpBtn.addEventListener('pointerup', releaseJump);
+  duckBtn.addEventListener('pointerdown', e => { e.preventDefault(); keys.down = true; });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => duckBtn.addEventListener(ev, () => { keys.down = false; }));
+
+  // ---------- UI ----------
+  const $ = id => document.getElementById(id);
+  const splashOv = $('splash'), menuOv = $('menu'), overOv = $('overOv'), pausedOv = $('pausedOv');
+  document.querySelectorAll('[data-pips]').forEach(el => {
+    const n = +el.dataset.pips;
+    el.innerHTML = Array.from({ length: 5 }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
+  });
+  const blur = () => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); };
+  function toMenu() { sfx.init(); splashOv.hidden = true; overOv.hidden = true; menuOv.hidden = false; mode = 'menu'; blur(); }
+  splashOv.addEventListener('click', toMenu);
+  function selectHero(k) {
+    heroKey = k;
+    document.querySelectorAll('.card').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.hero === k)));
+  }
+  document.querySelectorAll('.card').forEach(c => {
+    c.addEventListener('click', () => selectHero(c.dataset.hero));
+    c.addEventListener('dblclick', () => { selectHero(c.dataset.hero); startGame(); });
+  });
+  function startGame() {
+    if (mode !== 'menu' && mode !== 'over') return;
+    sfx.init(); blur();
+    reset();
+    menuOv.hidden = true; overOv.hidden = true; pausedOv.hidden = true;
+    mode = 'play';
+    narrate(pick(NARR.start), true);
+  }
+  $('startBtn').addEventListener('click', startGame);
+  $('retryBtn').addEventListener('click', startGame);
+  $('swapBtn').addEventListener('click', toMenu);
+  $('resumeBtn').addEventListener('click', togglePause);
+  $('pauseBtn').addEventListener('click', togglePause);
+  $('soundBtn').addEventListener('click', toggleSound);
+  function togglePause() {
+    if (mode === 'play' || mode === 'god') { prevMode = mode; mode = 'paused'; pausedOv.hidden = false; $('pauseBtn').textContent = 'Продължи'; }
+    else if (mode === 'paused') { mode = prevMode; pausedOv.hidden = true; $('pauseBtn').textContent = 'Пауза'; blur(); }
+  }
+  function toggleSound() {
+    sfx.on = !sfx.on; sfx.init();
+    const b = $('soundBtn'); b.textContent = 'Звук: ' + (sfx.on ? 'вкл' : 'изкл'); b.setAttribute('aria-pressed', String(sfx.on));
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden && (mode === 'play' || mode === 'god')) togglePause(); });
+
+  // ---------- spawning ----------
+  function spawn() {
+    const r = Math.random();
+    if (r < 0.42) {
+      const kind = pick(['low', 'head', 'head', 'low', 'high']);
+      const y = kind === 'low' ? GROUND - 28 : kind === 'head' ? GROUND - 58 : GROUND - 175;
+      obstacles.push({ type: 'drone', kind, x: W + 40, y, baseY: y, extra: rand(50, 140), t: rand(0, 6) });
+    } else if (r < 0.82) {
+      obstacles.push({ type: 'ship', x: W + 40, extra: rand(110, 210), t: 0 });
+      if (time > 25 && Math.random() < 0.35) obstacles.push({ type: 'drone', kind: 'high', x: W + 100, y: GROUND - 180, baseY: GROUND - 180, extra: 150, t: 0 });
+    } else {
+      obstacles.push({ type: 'cube', x: W + 40, extra: 0, t: 0 });
+    }
+    if (Math.random() < 0.4) spawnRings();
+    nextSpawn = clamp(rand(0.95, 1.8) * (540 / speed), 0.75, 2.4);
+  }
+  function spawnRings() {
+    const arc = Math.random() < 0.5, x0 = W + 260;
+    for (let i = 0; i < 5; i++) rings.push({ x: x0 + i * 42, y: arc ? GROUND - 60 - Math.sin(i / 4 * Math.PI) * 100 : GROUND - 40, t: i * 0.3 });
+  }
+  function spawnBoss() {
+    const lines = BOSS_HELLO.any.concat(BOSS_HELLO[heroKey]);
+    boss = { x: W + 80, state: 'enter', t: 0, throwT: 1.2, throws: 0, max: Math.floor(rand(5, 8)), name: pick(BOSS_NAMES), say: pick(lines), sayT: 0, arm: 0, lowNext: Math.random() < 0.5 };
+    narrate(pick(NARR.boss), true);
+  }
+  function bossThrow() {
+    const low = boss.lowNext; boss.lowNext = Math.random() < 0.5 ? !low : low;
+    obstacles.push(low
+      ? { type: 'bar', x: boss.x - 30, y: GROUND - 14, abs: -(speed * 0.55 + 380), t: 0 }
+      : { type: 'bag', x: boss.x - 30, y: GROUND - 60, abs: -(speed * 0.55 + 330), t: 0 });
+    boss.arm = 0.3; sfx.throw();
+  }
+
+  // God timeline (seconds): fade in 0–1.1 · line 1.2–3.2 · descend + hand kiss 3.2–4.9 · reply 4.9–6.4 · parting 6.4–7.9 · fade out 7.9–8.6
+  const GOD_END = 8.6;
+  function startGod() {
+    shout = null;
+    mode = 'god'; godVisits++;
+    const pair = pick(GOD_PAIRS[heroKey]);
+    god = { t: 0, line: pair[0], reply: pair[1], parting: pick(GOD_PARTING), cx: clamp(hero.x + 250, 360, 740), kissed: false };
+    keys.down = false; caption = null;
+    sfx.choir();
+    if (boss) { boss.say = 'Ай, Господи… Не съм бил аз.'; boss.sayT = 0; }
+  }
+  const godDrop = g => ease((g.t - 3.0) / 0.6) * (1 - ease((g.t - 4.9) / 0.6));
+  const kissLean = g => ease((g.t - 3.3) / 0.5) * (1 - ease((g.t - 4.7) / 0.4));
+  function endGod() {
+    mode = 'play'; god = null; invuln = 1.6;
+    const loss = Math.round(rand(12, 22));
+    dignity = Math.max(0, dignity - loss);
+    floater(`РЕЙТИНГ −${loss}%`, hero.x, hero.y - 140, C.red, 20);
+    nextGod = rand(22, 38);
+    if (dignity === 0 && !saidNoDignity) { saidNoDignity = true; narrate(NARR.noDignity[0], true); }
+    else narrate(pick(NARR.afterGod), true);
+  }
+  function die(cause) {
+    mode = 'dying'; deathT = 0; deathCause = cause;
+    hero.vy = -720; hero.spin = 0; shake = 14;
+    sfx.trombone();
+    burst(hero.x, hero.y - 40, 22, C.gold, 300, 700, 5);
+    floater(pick(['ОПА', 'БУМ', 'ОСТАВКА', 'НЕ']), hero.x, hero.y - 140, C.red, 30);
+  }
+  function showOver() {
+    mode = 'over';
+    const d = Math.floor(dist);
+    if (d > best[heroKey]) { best[heroKey] = d; try { localStorage.setItem('hero-allegedly-best-v2', JSON.stringify(best)); } catch (e) {} }
+    $('overTitle').innerHTML = pick(OVER_TITLES);
+    $('roast').textContent = fmt(pick(ROASTS[deathCause] || ROASTS.drone)) + ' ' + pick(HERO_TAG[heroKey]);
+    $('stDist').textContent = d + ' м';
+    $('stBest').textContent = best[heroKey] + ' м';
+    $('stRings').textContent = String(ringCount);
+    $('stDig').textContent = dignity + '%';
+    $('stGod').textContent = String(godVisits);
+    overOv.hidden = false;
+  }
+
+  // ---------- shouts + the international observer ----------
+  function toRoman(n) {
+    const map = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+    let out = ''; for (const [v, r] of map) while (n >= v) { out += r; n -= v; } return out;
+  }
+  function heroShout(text) {
+    if (mode !== 'play') return;
+    shout = { text: text || pick(SHOUTS), t: 0 };
+    nextShout = rand(9, 16);
+    sfx.tone(520, 380, 0.18, 'sawtooth', 0.05); sfx.tone(560, 420, 0.22, 'sawtooth', 0.04, 0.16);
+    if (shout.text === 'НЕ НА АРАБСКИТЕ ЦИФРИ!') romanT = 6;
+    if (Math.random() < 0.6) narrate(pick(SHOUT_NARR[shout.text]), true);
+  }
+  // timeline (s): slide in 0–0.8 · hello 0.8–3.0 · silent stare 3.0–5.2 · verdict 5.2–7.0 · slide out 6.4–7.2
+  const WATCH_END = 7.2, WATCH_FREEZE = 2.6;
+  function startWatcher() {
+    watcher = { t: 0, hello: pick(WATCH.hello), startRings: ringCount, verdict: null };
+    spawnRings();
+    heroShout('НИЕ СМЕ ЗА МИР!');
+    floater('ЗАМРЯ', hero.x, hero.y - 175, '#9fc3ff', 20);
+    narrate(pick(WATCH.narr), true);
+    sfx.tone(110, 90, 0.9, 'triangle', 0.08);
+  }
+  function updateWatcher(dt) {
+    const w = watcher; w.t += dt;
+    if (!w.verdict && w.t > 5.2) {
+      w.verdict = ringCount - w.startRings >= 2 ? 'good' : 'bad';
+      w.line = pick(WATCH[w.verdict]);
+      const d = w.verdict === 'good' ? 5 : -10;
+      dignity = clamp(dignity + d, 0, 100);
+      floater(w.verdict === 'good' ? 'РЕЙТИНГ +5% (ОДОБРЕНО)' : 'РЕЙТИНГ −10% (НЕДОВОЛСТВО)', hero.x + 40, hero.y - 175, w.verdict === 'good' ? C.lime : C.red, 18);
+      if (w.verdict === 'good') sfx.ding(); else sfx.tone(160, 110, 0.5, 'sawtooth', 0.06);
+    }
+    if (w.t > WATCH_END) { watcher = null; nextWatch = rand(30, 50); }
+  }
+  const WATCH_H = 300;
+  function watcherRect(w) {
+    const im = IMG.watcher, h = WATCH_H, ww = ready(im) ? h * im.naturalWidth / im.naturalHeight : 380;
+    const k = ease(w.t / 0.8) * (1 - ease((w.t - 6.4) / 0.8));
+    return { x: W + 20 - (ww - 30) * k, y: GROUND + 34 - h + Math.sin(w.t * 1.6) * 3, w: ww, h, a: k };
+  }
+  function drawWatcher(w) {
+    const r = watcherRect(w);
+    ctx.save(); ctx.globalAlpha = r.a;
+    ctx.beginPath(); ctx.rect(0, 0, W, GROUND + 14); ctx.clip();
+    if (ready(IMG.watcher)) ctx.drawImage(IMG.watcher, r.x, r.y, r.w, r.h);
+    ctx.restore();
+  }
+  function drawWatcherBubble(w) {
+    const r = watcherRect(w), hx = r.x + r.w * 0.5, hy = r.y + r.h * 0.2, t = w.t;
+    if (t > 0.8 && t < 3.0) bubble(w.hello, hx - 190, hy - 30, 290, hx - 50, hy, ST_WATCH, Math.min(1, (t - 0.8) * 4, (3.0 - t) * 6));
+    if (t > 3.2 && t < 5.0) bubble('…', hx - 120, hy - 30, 80, hx - 50, hy, ST_WATCH, Math.min(1, (t - 3.2) * 4, (5.0 - t) * 6));
+    if (w.line && t < 6.9) bubble(w.line, hx - 190, hy - 30, 290, hx - 50, hy, ST_WATCH, Math.min(1, (t - 5.2) * 4, (6.9 - t) * 6));
+  }
+
+  // ---------- update ----------
+  const heroBox = () => { const hh = hero.duck ? 40 : HEROES[heroKey].h; return { x: hero.x - 17, y: hero.y - hh, w: 34, h: hh }; };
+  function obsBox(o) {
+    switch (o.type) {
+      case 'drone': return { x: o.x - 22, y: o.y - 9, w: 44, h: 18 };
+      case 'ship': return { x: o.x - 4, y: GROUND - 40, w: 126, h: 40 };
+      case 'cube': return { x: o.x + 2, y: GROUND - 52, w: 42, h: 52 };
+      case 'bar': return { x: o.x, y: o.y, w: 32, h: 14 };
+      case 'bag': return { x: o.x - 13, y: o.y - 13, w: 26, h: 26 };
+    }
+  }
+  const hit = (a, b, s = 4) => a.x + s < b.x + b.w && a.x + a.w - s > b.x && a.y + s < b.y + b.h && a.y + a.h - s > b.y;
+
+  function heroPhysics(dt) {
+    const hd = HEROES[heroKey];
+    hero.vy += hd.grav * dt * (hero.vy > 0 ? 1.15 : 1);
+    if (keys.down && !hero.onGround && mode === 'play') hero.vy += 3200 * dt;
+    hero.y += hero.vy * dt;
+    if (hero.y >= GROUND) {
+      if (!hero.onGround && hero.vy > 450) burst(hero.x, GROUND, 8, '#c8f58a', 140, 500, 4);
+      hero.y = GROUND; hero.vy = 0; hero.onGround = true; hero.jumps = 0; hero.coyote = 0.08;
+    } else { hero.onGround = false; hero.coyote -= dt; }
+    const wasDuck = hero.duck;
+    hero.duck = keys.down && hero.onGround && mode === 'play';
+    if (hero.duck && !wasDuck && Math.random() < 0.15) narrate(pick(NARR.duck));
+  }
+
+  function update(dt) {
+    if (mode === 'paused') return;
+    if (mode === 'menu' || mode === 'splash') { scroll += 160 * dt; return; }
+    hero.t += dt;
+    narrCooldown -= dt;
+    if (caption) { caption.t += dt; if (caption.t > caption.life) caption = null; }
+    shake = Math.max(0, shake - 40 * dt);
+
+    const frozen = mode === 'play' && watcher && watcher.t < WATCH_FREEZE;
+    if (frozen) {
+      // the hero stands frozen under the observer's gaze; the world waits too
+      keys.down = false;
+      heroPhysics(dt);
+      updateWatcher(dt);
+      if (shout) { shout.t += dt; if (shout.t > 2.2) shout = null; }
+      if (watcher.t >= WATCH_FREEZE) invuln = Math.max(invuln, 1.2);
+    } else if (mode === 'play') {
+      time += dt;
+      speed = Math.min(920, 380 + time * 9);
+      dist += speed * dt / 30;
+      scroll += speed * dt;
+      invuln = Math.max(0, invuln - dt);
+      const mx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+      hero.x = clamp(hero.x + mx * 320 * dt, 60, 520);
+      heroPhysics(dt);
+
+      if (!boss) { nextSpawn -= dt; if (nextSpawn <= 0) spawn(); nextBoss -= dt; if (nextBoss <= 0) spawnBoss(); }
+      nextGod -= dt; if (nextGod <= 0 && hero.onGround && !watcher) startGod();
+      nextWatch -= dt; if (nextWatch <= 0 && !watcher && !god) startWatcher();
+      if (watcher) updateWatcher(dt);
+      romanT = Math.max(0, romanT - dt);
+      if (shout) { shout.t += dt; if (shout.t > 2.2) shout = null; }
+      nextShout -= dt; if (nextShout <= 0 && !shout) heroShout();
+
+      if (dist >= milestone) { narrate(pick(NARR.milestone), true); sfx.ding(); milestone += 250; }
+
+      if (boss) {
+        boss.t += dt; boss.sayT += dt; boss.arm = Math.max(0, boss.arm - dt);
+        if (boss.state === 'enter') { boss.x -= 220 * dt; if (boss.x <= 800) { boss.x = 800; boss.state = 'throw'; } }
+        else if (boss.state === 'throw') {
+          boss.throwT -= dt;
+          if (boss.throwT <= 0) {
+            if (boss.throws < boss.max) { bossThrow(); boss.throws++; boss.throwT = rand(0.85, 1.3); }
+            else { boss.state = 'leave'; boss.say = pick(BOSS_BYE); boss.sayT = 0; }
+          }
+        } else if (boss.state === 'leave') {
+          boss.x += 260 * dt;
+          if (boss.x > W + 120) { boss = null; nextBoss = rand(32, 50); nextSpawn = 0.9; }
+        }
+      }
+
+      const hb = heroBox();
+      for (const r of rings) {
+        r.t += dt; r.x -= speed * dt;
+        if (!r.got && hit(hb, { x: r.x - 12, y: r.y - 12, w: 24, h: 24 }, 0)) {
+          r.got = true; ringCount++; sfx.ring(); burst(r.x, r.y, 6, C.gold, 120, 200, 3);
+          if (ringCount === 15 && !saidRings) { saidRings = true; narrate(pick(NARR.rings), true); }
+        }
+      }
+      rings = rings.filter(r => !r.got && r.x > -40);
+
+      for (const o of obstacles) {
+        o.t += dt;
+        o.x += (o.abs != null ? o.abs : -(speed + o.extra)) * dt;
+        if (o.type === 'drone' && o.kind === 'high') o.y = o.baseY + Math.sin(o.t * 3) * 22;
+        if (o.type === 'ship' && Math.random() < 0.3) particles.push({ x: o.x + 128, y: GROUND - 30, vx: rand(40, 90), vy: rand(-40, -10), life: 0.5, t: 0, color: 'rgba(230,230,240,0.7)', size: rand(3, 6), grav: -20 });
+        const ob = obsBox(o);
+        if (invuln <= 0 && hit(hb, ob)) { die(o.type); break; }
+        if (!o.passed && ob.x + ob.w < hb.x) {
+          o.passed = true;
+          const gapV = ob.y - (hb.y + hb.h), gapUnder = hb.y - (ob.y + ob.h);
+          if ((gapV >= 0 && gapV < 22) || (gapUnder >= 0 && gapUnder < 12)) {
+            sfx.near(); floater(pick(['КЪСМЕТ', 'НА КОСЪМ', 'СЛУЧАЙНО УМЕНИЕ']), hero.x, hero.y - 130, C.lime, 16);
+            if (Math.random() < 0.5) narrate(pick(NARR.near));
+          }
+        }
+      }
+      obstacles = obstacles.filter(o => o.x > -200);
+    } else if (mode === 'god') {
+      god.t += dt;
+      heroPhysics(dt);
+      if (Math.random() < 0.5) particles.push({ x: rand(god.cx - 160, god.cx + 160), y: rand(20, 200), vx: rand(-10, 10), vy: rand(20, 60), life: 1.4, t: 0, color: C.gold, size: rand(1.5, 3.5), grav: 0 });
+      if (!god.kissed && god.t > 3.9) {
+        god.kissed = true; sfx.kiss();
+        const fp = facePos(heroKey, 'kneel', kissLean(god));
+        floater('МЛЯС!', hero.x + fp.x + 30, hero.y + fp.y - 20, '#ff7eb6', 26);
+        for (let i = 0; i < 8; i++) particles.push({ x: hero.x + fp.x + 20, y: hero.y + fp.y, vx: rand(-40, 60), vy: rand(-90, -30), life: 1.4, t: 0, color: '#ff7eb6', size: rand(4, 7), grav: -10, heart: true });
+      }
+      if (boss) boss.sayT += dt;
+      if (god.t > GOD_END) endGod();
+    } else if (mode === 'dying') {
+      deathT += dt;
+      speed *= Math.pow(0.15, dt);
+      scroll += speed * dt;
+      hero.vy += 2000 * dt; hero.y += hero.vy * dt; hero.x -= 40 * dt; hero.spin += 9 * dt;
+      for (const o of obstacles) { o.t += dt; o.x += (o.abs != null ? o.abs * 0.3 : -(speed + o.extra * 0.3)) * dt; }
+      for (const r of rings) r.x -= speed * dt;
+      if (deathT > 1.7) showOver();
+    }
+
+    for (const p of particles) { p.t += dt; p.vy += p.grav * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+    particles = particles.filter(p => p.t < p.life);
+    for (const f of floaters) f.t += dt;
+    floaters = floaters.filter(f => f.t < f.life);
+  }
+
+  // ---------- drawing helpers ----------
+  function rr(c, x, y, w, h, r) {
+    c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+  }
+  function poly(c, pts) { c.beginPath(); c.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]); c.closePath(); }
+  function limb(c, pts, color, w) {
+    c.strokeStyle = color; c.lineWidth = w; c.lineCap = 'round'; c.lineJoin = 'round';
+    c.beginPath(); c.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]); c.stroke();
+  }
+  function heart(c, x, y, s) {
+    c.beginPath(); c.moveTo(x, y + s * 0.3);
+    c.bezierCurveTo(x, y, x - s, y, x - s, y + s * 0.35); c.bezierCurveTo(x - s, y + s * 0.8, x, y + s, x, y + s * 1.25);
+    c.bezierCurveTo(x, y + s, x + s, y + s * 0.8, x + s, y + s * 0.35); c.bezierCurveTo(x + s, y, x, y, x, y + s * 0.3); c.fill();
+  }
+  // waving flag; stripes are drawn top to bottom
+  function flag(c, x, y, w, h, stripes, t) {
+    const cols = 10, cw = w / cols, sh = h / stripes.length;
+    for (let i = 0; i < cols; i++) {
+      const dy = Math.sin(t * 9 - i * 0.7) * (i / cols) * 3.5;
+      stripes.forEach((col, s) => { c.fillStyle = col; c.fillRect(x + i * cw - 0.3, y + dy + s * sh, cw + 0.6, sh + 0.4); });
+    }
+  }
+  const RU = ['#ffffff', '#0039a6', '#d52b1e'];
+  const UA = ['#0057b7', '#ffd700'];
+  function wrap(text, maxW) {
+    const words = text.split(' '), lines = []; let line = '';
+    for (const w of words) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
+    if (line) lines.push(line); return lines;
+  }
+  function bubble(text, cx, bottom, maxW, tx, ty, st, alpha = 1) {
+    if (alpha <= 0) return;
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.font = `700 19px ${FONT_B}`;
+    const lines = wrap(text, maxW - 26), lh = 22;
+    const w = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 26), h = lines.length * lh + 16;
+    const x = clamp(cx - w / 2, 8, W - w - 8), y = Math.max(14, bottom - h);
+    ctx.fillStyle = st.bg; ctx.strokeStyle = st.border; ctx.lineWidth = 3;
+    const ax = clamp(tx, x + 16, x + w - 16);
+    ctx.beginPath(); ctx.moveTo(ax - 9, y + h - 2); ctx.lineTo(tx, ty); ctx.lineTo(ax + 9, y + h - 2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    rr(ctx, x, y, w, h, 10); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax - 7, y + h - 3); ctx.lineTo(ax + 7, y + h - 3); ctx.lineWidth = 4; ctx.strokeStyle = st.bg; ctx.stroke();
+    ctx.fillStyle = st.fg; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    lines.forEach((l, i) => ctx.fillText(l, x + 13, y + 9 + i * lh));
+    if (st.label) {
+      ctx.font = `12px ${FONT_D}`; const lw = ctx.measureText(st.label).width + 14;
+      ctx.fillStyle = st.border; rr(ctx, x + 10, y - 11, lw, 18, 4); ctx.fill();
+      ctx.fillStyle = st.labelFg || C.night; ctx.fillText(st.label, x + 17, y - 8);
+    }
+    ctx.restore();
+  }
+  const ST_GOD = { bg: '#fff8dc', border: C.gold, fg: '#3b2600', label: 'БОГ ✓', labelFg: '#3b2600' };
+  const ST_HERO = { bg: '#ffffff', border: C.night, fg: C.night };
+  const ST_SHOUT = { bg: '#fff1f1', border: '#e0182d', fg: '#a10012' };
+  const ST_WATCH = { bg: '#eef4ff', border: '#2c5fd6', fg: '#0f2457', label: 'МЕЖДУНАРОДЕН НАБЛЮДАТЕЛ', labelFg: '#ffffff' };
+  const ST_BOSS = { bg: '#ffe2ee', border: '#ff4f8b', fg: '#3d0b22' };
+
+  // ---------- hero sprites (photo cutouts, animated by transform) ----------
+  function poseXform(pose, t, lean = 0) {
+    let bob = 0, rot = 0, sx = 1, sy = 1;
+    if (pose === 'run') { bob = -Math.abs(Math.sin(t * 13)) * 5; rot = Math.sin(t * 13) * 0.05; }
+    else if (pose === 'jump') { rot = -0.1; sx = 0.97; sy = 1.04; }
+    else if (pose === 'duck') { sx = 1.18; sy = 0.5; }
+    else if (pose === 'kneel') { sy = 0.7; rot = 0.2 + lean * 0.22; }
+    return { bob, rot, sx, sy };
+  }
+  function spriteSize(key) {
+    const s = SPR[key], img = IMG[key];
+    return { w: ready(img) ? s.h * img.naturalWidth / img.naturalHeight : s.h * 0.6, h: s.h };
+  }
+  function facePos(key, pose, lean) {
+    const { w, h } = spriteSize(key), f = SPR[key].face, p = poseXform(pose, 0, lean);
+    const px = (-w / 2 + w * f[0]) * p.sx, py = (-h + h * f[1]) * p.sy;
+    return { x: px * Math.cos(p.rot) - py * Math.sin(p.rot), y: px * Math.sin(p.rot) + py * Math.cos(p.rot) + p.bob };
+  }
+  function drawHeroSprite(c, key, pose, t, lean = 0) {
+    const { w, h } = spriteSize(key), img = IMG[key], p = poseXform(pose, t, lean);
+    c.save();
+    c.translate(0, p.bob); c.rotate(p.rot); c.scale(p.sx, p.sy);
+    if (key === 'cape' && ready(IMG.capeCloth)) {
+      const nk = SPR.cape.neck, cw = h * 1.05, ch = cw * IMG.capeCloth.naturalHeight / IMG.capeCloth.naturalWidth;
+      const fl = Math.sin(t * (pose === 'run' ? 18 : 6));
+      c.save(); c.translate(-w / 2 + w * nk[0], -h + h * nk[1]);
+      c.rotate(pose === 'jump' ? 0.25 : pose === 'kneel' ? -0.5 : 0.08 + fl * 0.04);
+      c.scale(1 + fl * 0.06, 1 + fl * 0.12);
+      c.drawImage(IMG.capeCloth, -cw * 0.8, -ch * 0.42, cw, ch);
+      c.restore();
+    }
+    if (ready(img)) c.drawImage(img, -w / 2, -h, w, h);
+    else { c.fillStyle = key === 'cape' ? '#1f2a55' : '#222'; rr(c, -16, -h, 32, h, 10); c.fill(); }
+    c.restore();
+  }
+
+  // ---------- enemies ----------
+  function drawDrone(o) {
+    ctx.save(); ctx.translate(o.x, o.y);
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(-8, -34); ctx.stroke();
+    flag(ctx, -7, -34, 26, 17, RU, o.t);
+    ctx.strokeStyle = '#3a4150'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-20, -7); ctx.lineTo(20, -7); ctx.stroke();
+    for (const sx of [-20, 20]) {
+      ctx.fillStyle = 'rgba(225,225,240,0.6)';
+      ctx.beginPath(); ctx.ellipse(sx, -10, 3 + 11 * Math.abs(Math.sin(o.t * 40 + sx)), 2.2, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#3a4150'; ctx.fillRect(sx - 1.5, -11, 3, 5);
+    }
+    ctx.fillStyle = '#2b3140'; rr(ctx, -15, -8, 30, 15, 5); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(0, 9, 4.5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#7fd3ff'; ctx.beginPath(); ctx.arc(1.4, 8, 1.4, 0, 7); ctx.fill();
+    if (Math.sin(o.t * 9) > 0) { ctx.fillStyle = '#ff3355'; ctx.beginPath(); ctx.arc(10, -4, 2.2, 0, 7); ctx.fill(); }
+    ctx.restore();
+  }
+  function drawShip(o) {
+    ctx.save(); ctx.translate(o.x, GROUND);
+    ctx.rotate(Math.sin(o.t * 14) * 0.015);
+    ctx.strokeStyle = '#444'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(112, -40); ctx.lineTo(112, -96); ctx.stroke();
+    flag(ctx, 113, -96, 40, 26, UA, o.t);
+    for (const wx of [22, 98]) {
+      ctx.fillStyle = '#151515'; ctx.beginPath(); ctx.arc(wx, -7, 7.5, 0, 7); ctx.fill();
+      ctx.fillStyle = '#bbb'; ctx.save(); ctx.translate(wx, -7); ctx.rotate(-o.t * 30); ctx.fillRect(-1, -5, 2, 10); ctx.restore();
+    }
+    ctx.fillStyle = '#f4f6fb';
+    ctx.beginPath(); ctx.moveTo(-12, -32); ctx.quadraticCurveTo(-2, -13, 22, -13); ctx.lineTo(120, -13); ctx.lineTo(122, -42); ctx.lineTo(14, -42); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#0057b7'; ctx.fillRect(14, -30, 106, 6);
+    ctx.fillStyle = '#ffd700'; ctx.fillRect(14, -24, 106, 5);
+    ctx.fillStyle = 'rgba(160,225,255,0.85)'; poly(ctx, [44, -42, 56, -58, 74, -58, 70, -42]); ctx.fill();
+    ctx.fillStyle = '#2b2b2b'; ctx.fillRect(120, -52, 10, 32);
+    ctx.restore();
+  }
+  function drawCube(o) {
+    const img = IMG.cube;
+    if (ready(img)) { const h = 60, w = h * img.naturalWidth / img.naturalHeight; ctx.drawImage(img, o.x, GROUND - h + 3, w, h); }
+    else { ctx.fillStyle = '#d02a2a'; ctx.fillRect(o.x, GROUND - 52, 46, 52); }
+  }
+  function drawBar(o) {
+    ctx.save(); ctx.translate(o.x, o.y);
+    ctx.fillStyle = '#e8a91c'; poly(ctx, [0, 14, 32, 14, 27, 0, 5, 0]); ctx.fill();
+    ctx.fillStyle = '#ffe28a'; poly(ctx, [6, 3, 18, 3, 16, 6, 7, 6]); ctx.fill();
+    ctx.restore();
+  }
+  function drawBag(o) {
+    ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.t * -10);
+    ctx.fillStyle = '#b07b3e'; ctx.beginPath(); ctx.arc(0, 2, 12, 0, 7); ctx.fill();
+    ctx.fillRect(-4, -12, 8, 6); ctx.fillStyle = '#6b4520'; ctx.fillRect(-6, -8, 12, 2.5);
+    ctx.fillStyle = '#fff3e2'; ctx.font = `13px ${FONT_D}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', 0, 3);
+    ctx.restore();
+  }
+  function drawRing(r) {
+    const img = IMG.ring, s = 26, sx = Math.max(0.15, Math.abs(Math.cos(r.t * 4)));
+    ctx.save(); ctx.translate(r.x, r.y); ctx.scale(sx, 1);
+    if (ready(img)) ctx.drawImage(img, -s / 2, -s / 2, s, s * img.naturalHeight / img.naturalWidth);
+    else { ctx.strokeStyle = C.gold; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 10, 0, 7); ctx.stroke(); }
+    ctx.restore();
+  }
+  function drawBoss(b, t) {
+    const walking = b.state !== 'throw';
+    const sw = walking ? Math.sin(t * 12) : 0;
+    const bob = Math.abs(Math.sin(t * (walking ? 12 : 3))) * 3;
+    ctx.save(); ctx.translate(b.x, GROUND);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(0, 0, 36, 6, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#f2eee8'; ctx.fillRect(-18 + sw * 4, -36, 14, 34); ctx.fillRect(4 - sw * 4, -36, 14, 34);
+    ctx.fillStyle = C.gold; ctx.fillRect(-22 + sw * 4, -5, 18, 5); ctx.fillRect(2 - sw * 4, -5, 18, 5);
+    ctx.translate(0, -bob);
+    limb(ctx, [24, -86, 30, -62, 26, -46], '#e8e3dc', 11);
+    ctx.fillStyle = '#f7f3ee'; rr(ctx, -31, -98, 62, 66, 14); ctx.fill();
+    ctx.fillStyle = '#ff5fa2'; poly(ctx, [-12, -98, 12, -98, 0, -64]); ctx.fill();
+    ctx.strokeStyle = C.gold; ctx.lineWidth = 3;
+    for (const r of [10, 16, 22]) { ctx.beginPath(); ctx.arc(0, -98 + r * 0.2, r, 0.25 * Math.PI, 0.75 * Math.PI); ctx.stroke(); }
+    ctx.fillStyle = C.gold; ctx.beginPath(); ctx.arc(0, -72, 7, 0, 7); ctx.fill();
+    ctx.fillStyle = '#7a5200'; ctx.font = `10px ${FONT_D}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', 0, -71.5);
+    const throwing = b.arm > 0;
+    limb(ctx, throwing ? [-24, -88, -38, -104, -46, -116] : [-24, -88, -32, -66, -30, -50], '#f7f3ee', 11);
+    ctx.fillStyle = '#c98b5a'; ctx.beginPath(); ctx.arc(throwing ? -46 : -30, throwing ? -118 : -48, 5.5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#c98b5a'; ctx.beginPath(); ctx.arc(-2, -112, 17, 0, 7); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(1, -124, 18, 8, 0, Math.PI, 0); ctx.fill();
+    ctx.fillRect(-18, -118, 24, 7);
+    ctx.beginPath(); ctx.ellipse(-10, -104, 10, 4, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = C.gold; ctx.fillRect(-12, -101, 3, 3);
+    ctx.fillStyle = '#6b3d1e'; ctx.fillRect(-34, -101, 16, 4);
+    ctx.fillStyle = '#ff7a2f'; ctx.fillRect(-36, -101, 3, 4);
+    ctx.restore();
+    if (Math.random() < 0.15 && mode !== 'paused') particles.push({ x: b.x - 36, y: GROUND - 101 - bob, vx: rand(-15, 5), vy: rand(-40, -20), life: 1.1, t: 0, color: 'rgba(240,240,250,0.6)', size: rand(3, 6), grav: -10 });
+  }
+
+  // ---------- God (composited from the segments_god cutouts) ----------
+  // God-local layout in px, origin = (cx, top). Matches the reference: wings, throne, figure, hologram + crystal, rune table, clouds.
+  const GOD_W = 250, GOD_FIG = [-125, 18], GOD_HANDS = [9, 149];
+  const godTop = g => 40 + (1 - godAlpha(g)) * -40 + godDrop(g) * 70;
+  function drawGodLight(g) {
+    const a = godAlpha(g), cx = g.cx, cy = godTop(g) + 110;
+    ctx.save(); ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(20, 24, 60, 0.35)'; ctx.fillRect(0, 0, W, H);
+    const sky = IMG.godSky;
+    if (ready(sky)) { ctx.globalAlpha = a * 0.45; const sw = 520, sh = sw * sky.naturalHeight / sky.naturalWidth; ctx.drawImage(sky, cx - sw / 2, cy - sh / 2, sw, sh); ctx.globalAlpha = a; }
+    const rg = ctx.createRadialGradient(cx, cy, 10, cx, cy, 380);
+    rg.addColorStop(0, 'rgba(255,240,190,0.95)'); rg.addColorStop(0.35, 'rgba(255,205,110,0.45)'); rg.addColorStop(1, 'rgba(255,200,100,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(reduceMotion ? 0 : g.t * 0.12);
+    ctx.fillStyle = 'rgba(255,236,170,0.18)';
+    for (let i = 0; i < 16; i++) { ctx.rotate(Math.PI * 2 / 16); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-26, -600); ctx.lineTo(26, -600); ctx.closePath(); ctx.fill(); }
+    ctx.restore(); ctx.restore();
+  }
+  const godAlpha = g => g.t < 1.1 ? g.t / 1.1 : g.t > 7.9 ? Math.max(0, 1 - (g.t - 7.9) / 0.7) : 1;
+  function img(c, im, x, y, w, h) { if (ready(im)) c.drawImage(im, x, y, w, h ?? w * im.naturalHeight / im.naturalWidth); }
+  function drawGod(g) {
+    const t = g.t, a = godAlpha(g), cx = g.cx, top = godTop(g);
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(cx, top);
+    // wings (golden light rays): right one as-is, left one mirrored, slow flap
+    const flap = Math.sin(t * 2.2) * 0.06;
+    for (const side of [1, -1]) {
+      ctx.save(); ctx.scale(side, 1); ctx.translate(40, 150); ctx.rotate(-flap);
+      img(ctx, IMG.godWing, 0, -170, 140, 290);
+      ctx.restore();
+    }
+    img(ctx, IMG.godThrone, -132, -12, 264);
+    img(ctx, IMG.godVeil, -175, 40, 350);
+    img(ctx, IMG.godMan, GOD_FIG[0], GOD_FIG[1], GOD_W);
+    if (g.kissed) { ctx.fillStyle = '#fff6c8'; heart(ctx, 30, 70 + Math.sin(t * 6) * 3, 5); }
+    // hologram + floating black crystal above the hole in the table
+    ctx.save(); ctx.globalAlpha = a * (0.45 + 0.15 * Math.sin(t * 17));
+    img(ctx, IMG.godHolo, -60, 120, 96);
+    ctx.restore();
+    const bob = Math.sin(t * 2.4) * 5;
+    ctx.save(); ctx.shadowColor = 'rgba(120, 200, 255, 0.9)'; ctx.shadowBlur = 18;
+    img(ctx, IMG.godCrystal, -34, 150 + bob, 40);
+    ctx.restore();
+    img(ctx, IMG.godTable, -150, 205, 300);
+    ctx.globalAlpha = a * 0.9;
+    img(ctx, IMG.godClouds, -215, 255, 150); img(ctx, IMG.godClouds, 70, 270, 150);
+    ctx.restore();
+
+    // robe sleeve reaching out with the hands during the kiss
+    const arm = godArm(g);
+    if (arm.k > 0.02) {
+      ctx.save(); ctx.globalAlpha = a;
+      limb(ctx, [arm.shoulder[0], arm.shoulder[1], arm.elbow[0], arm.elbow[1], arm.hand[0] + 14, arm.hand[1]], '#1c1b26', 22);
+      limb(ctx, [arm.shoulder[0], arm.shoulder[1] - 9, arm.elbow[0], arm.elbow[1] - 9, arm.hand[0] + 14, arm.hand[1] - 9], C.gold, 2);
+      ctx.restore();
+    }
+  }
+  // the clasped hands leave the chest and travel to the kneeling hero's lips
+  function godArm(g) {
+    const t = g.t, top = godTop(g);
+    const k = ease((t - 3.0) / 0.6) * (1 - ease((t - 4.9) / 0.5));
+    const fp = facePos(heroKey, 'kneel', kissLean(g));
+    const shoulder = [g.cx - 20, top + 135];
+    const rest = [g.cx + GOD_HANDS[0], top + GOD_HANDS[1]];
+    const lips = [hero.x + fp.x + 30, hero.y + fp.y + 4];
+    const hand = [lerp(rest[0], lips[0], k), lerp(rest[1], lips[1], k)];
+    const elbow = [lerp(shoulder[0], hand[0], 0.5), lerp(shoulder[1], hand[1], 0.5) + 14];
+    return { shoulder, elbow, hand, k };
+  }
+  // drawn after the hero so the hands sit on the hero's lips
+  function drawGodHand(g) {
+    const { hand, k } = godArm(g);
+    if (k <= 0.02) return;
+    ctx.save(); ctx.globalAlpha = godAlpha(g);
+    ctx.shadowColor = 'rgba(255, 220, 130, 0.9)'; ctx.shadowBlur = 16;
+    if (ready(IMG.godHands)) img(ctx, IMG.godHands, hand[0] - 26, hand[1] - 20, 52);
+    else { ctx.fillStyle = '#efc9a4'; ctx.beginPath(); ctx.ellipse(hand[0], hand[1], 14, 10, 0, 0, 7); ctx.fill(); }
+    ctx.shadowBlur = 0;
+    img(ctx, IMG.ring, hand[0] - 14, hand[1] - 6, 12, 13);
+    ctx.restore();
+  }
+  function drawGodBubbles(g) {
+    const t = g.t, cx = g.cx;
+    const bx = cx < 520 ? cx + 280 : cx - 290, ty = godTop(g) + 90;
+    if (t > 1.2 && t < 3.2) bubble(g.line, bx, 110, 320, cx + (bx > cx ? 40 : -40), ty, ST_GOD, Math.min(1, (t - 1.2) * 4, (3.2 - t) * 6));
+    if (t > 3.5 && t < 4.8) bubble(pick2(g, ['*целува светите ръце*', '*мляс*', '*целува и си брои гласовете*']), hero.x + 40, hero.y - 150, 200, hero.x + 20, hero.y - 120, ST_HERO, Math.min(1, (t - 3.5) * 4));
+    if (t > 4.9 && t < 6.4) bubble(g.reply, hero.x + 50, hero.y - 130, 250, hero.x + 18, hero.y - 100, ST_HERO, Math.min(1, (t - 4.9) * 4, (6.4 - t) * 6));
+    if (t > 6.4 && t < 8.1) bubble(g.parting, bx, 110, 320, cx + (bx > cx ? 40 : -40), ty, ST_GOD, Math.min(1, (t - 6.4) * 4) * (t > 7.9 ? 1 - (t - 7.9) / 0.2 : 1));
+  }
+  const pick2 = (g, arr) => (g.kissText ??= pick(arr));
+
+  // ---------- scene ----------
+  function drawBackground() {
+    const sky = ctx.createLinearGradient(0, 0, 0, GROUND);
+    sky.addColorStop(0, '#0f5fd6'); sky.addColorStop(0.6, '#3d9df2'); sky.addColorStop(1, '#a7dcff');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, GROUND);
+    const cl = IMG.cloud;
+    for (let i = 0; i < 6; i++) {
+      const x = ((i * 280 - scroll * 0.05) % 1680 + 1680) % 1680 - 280, y = 20 + hash(i) * 120, s = 0.6 + hash(i + 4) * 0.7;
+      if (ready(cl)) { ctx.globalAlpha = 0.95; ctx.drawImage(cl, x, y, cl.naturalWidth * s, cl.naturalHeight * s); ctx.globalAlpha = 1; }
+      else { ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.ellipse(x, y, 70, 18, 0, 0, 7); ctx.fill(); }
+    }
+    // far floating voxel islands
+    const fo = scroll * 0.1;
+    for (let i = Math.floor(fo / 300) - 1; i < Math.floor(fo / 300) + 5; i++) {
+      const x = i * 300 - fo + hash(i) * 120, y = 110 + hash(i + 2) * 70, s = 0.5 + hash(i + 7) * 0.4;
+      drawIsland(x, y, s, i);
+    }
+    // mid voxel towers
+    const mo = scroll * 0.35;
+    for (let i = Math.floor(mo / 90) - 1; i < Math.floor(mo / 90) + 13; i++) {
+      const x = i * 90 - mo, h = 50 + hash(i * 3) * 110, w = 60 + hash(i + 1) * 20, top = GROUND - h;
+      ctx.fillStyle = '#4a2a8a'; ctx.fillRect(x, top, w, h);
+      ctx.fillStyle = '#5d37a8'; for (let r = top + 14; r < GROUND; r += 18) ctx.fillRect(x + 4, r, w - 8, 10);
+      ctx.fillStyle = '#d36bff'; ctx.fillRect(x + w * 0.3, top + 8, 3, h - 8); if (hash(i + 9) > 0.5) ctx.fillRect(x + w * 0.7, top + 20, 3, h - 20);
+      ctx.fillStyle = '#6fc22a'; ctx.fillRect(x - 2, top - 8, w + 4, 10);
+      ctx.fillStyle = '#9be85a'; ctx.fillRect(x - 2, top - 8, w + 4, 3);
+    }
+    // ground: dark neon base with green platform tiles on top
+    ctx.fillStyle = '#2a1650'; ctx.fillRect(0, GROUND, W, H - GROUND);
+    ctx.fillStyle = '#d36bff';
+    const go = scroll % 120;
+    for (let x = -go; x < W; x += 120) { ctx.fillRect(x + 20, GROUND + 30, 3, H - GROUND - 30); ctx.fillRect(x + 20, GROUND + 52, 60, 3); }
+    ctx.fillStyle = '#5aa823'; ctx.fillRect(0, GROUND, W, 26);
+    ctx.fillStyle = '#9be85a'; ctx.fillRect(0, GROUND, W, 4);
+    const pf = IMG.platform;
+    if (ready(pf)) {
+      const tw = 250, th = tw * pf.naturalHeight / pf.naturalWidth, po = scroll % (tw - 10);
+      for (let x = -po - 4; x < W; x += tw - 10) ctx.drawImage(pf, x, GROUND - 6, tw, th);
+    }
+  }
+  function drawIsland(x, y, s, i) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    ctx.fillStyle = '#8a5ad6'; ctx.fillRect(-70, 0, 140, 30); ctx.fillRect(-50, 30, 100, 24); ctx.fillRect(-26, 54, 52, 20);
+    ctx.fillStyle = '#7ed321'; ctx.fillRect(-74, -8, 148, 12);
+    ctx.fillStyle = '#b28cf0';
+    for (let b = 0; b < 4; b++) { const bh = 20 + hash(i * 5 + b) * 50; ctx.fillRect(-60 + b * 32, -8 - bh, 24, bh); }
+    ctx.fillStyle = '#ff9bd9'; ctx.fillRect(-12, -70, 8, 70);
+    ctx.restore();
+  }
+  function drawHUD() {
+    ctx.save();
+    ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.font = `30px ${FONT_D}`; ctx.lineWidth = 5; ctx.strokeStyle = C.night; ctx.lineJoin = 'round';
+    const dtext = (romanT > 0 ? toRoman(Math.max(1, Math.floor(dist))) : String(Math.floor(dist)).padStart(4, '0')) + ' м';
+    ctx.strokeText(dtext, 20, 16); ctx.fillStyle = C.gold; ctx.fillText(dtext, 20, 16);
+    ctx.font = `700 16px ${FONT_B}`; ctx.fillStyle = C.paper;
+    const sub = `${HEROES[heroKey].name.toUpperCase()}  ·  РЕКОРД ${best[heroKey]} м  ·  ГЛАСОВЕ ${ringCount}`;
+    ctx.strokeText(sub, 22, 52); ctx.fillText(sub, 22, 52);
+    const bx = W - 200, by = 20;
+    ctx.textAlign = 'right'; ctx.font = `700 15px ${FONT_B}`;
+    ctx.strokeText('РЕЙТИНГ', W - 20, by); ctx.fillText('РЕЙТИНГ', W - 20, by);
+    ctx.fillStyle = C.night; rr(ctx, bx, by + 22, 180, 14, 4); ctx.fill();
+    ctx.fillStyle = dignity > 40 ? C.lime : C.red; rr(ctx, bx + 2, by + 24, Math.max(0, 176 * dignity / 100), 10, 3); ctx.fill();
+    ctx.fillStyle = C.paper; ctx.font = `700 14px ${FONT_B}`;
+    const dl = dignity === 0 ? 'ПОД БАРИЕРАТА' : dignity + '%';
+    ctx.strokeText(dl, W - 20, by + 40); ctx.fillText(dl, W - 20, by + 40);
+    ctx.restore();
+  }
+  function drawCaption() {
+    if (!caption) return;
+    const a = Math.min(1, caption.t * 5, (caption.life - caption.t) * 3);
+    ctx.save(); ctx.globalAlpha = a;
+    const label = 'СОЦИОЛОГ  ';
+    ctx.font = `13px ${FONT_D}`; const lw = ctx.measureText(label).width;
+    ctx.font = `italic 500 20px ${FONT_B}`; const tw = ctx.measureText(caption.text).width;
+    const w = Math.min(W - 40, lw + tw + 30), x = (W - w) / 2, y = H - 46;
+    ctx.fillStyle = 'rgba(18, 12, 43, 0.85)'; rr(ctx, x, y, w, 32, 6); ctx.fill();
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    ctx.font = `13px ${FONT_D}`; ctx.fillStyle = C.gold; ctx.fillText(label, x + 14, y + 16);
+    ctx.font = `italic 500 20px ${FONT_B}`; ctx.fillStyle = C.paper; ctx.fillText(caption.text, x + 14 + lw, y + 17, w - lw - 24);
+    ctx.restore();
+  }
+
+  function render() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.save();
+    if (shake > 0 && !reduceMotion) ctx.translate(rand(-shake, shake), rand(-shake, shake));
+    drawBackground();
+    if (god) drawGodLight(god);
+    if (watcher) drawWatcher(watcher);
+    if (mode !== 'menu' && mode !== 'splash') {
+      for (const r of rings) drawRing(r);
+      for (const o of obstacles) ({ drone: drawDrone, ship: drawShip, cube: drawCube, bar: drawBar, bag: drawBag })[o.type](o);
+      if (boss) {
+        drawBoss(boss, hero.t);
+        ctx.font = `12px ${FONT_D}`; ctx.textAlign = 'center'; ctx.fillStyle = C.gold; ctx.strokeStyle = C.night; ctx.lineWidth = 4;
+        ctx.strokeText(boss.name.toUpperCase(), boss.x, GROUND - 150); ctx.fillText(boss.name.toUpperCase(), boss.x, GROUND - 150);
+        if (boss.sayT < 2.6) bubble(boss.say, boss.x - 60, GROUND - 162, 250, boss.x - 10, GROUND - 140, ST_BOSS, Math.min(1, boss.sayT * 4, (2.6 - boss.sayT) * 3));
+      }
+      if (god) drawGod(god);
+      let pose = 'run', lean = 0;
+      const inGod = mode === 'god' || (mode === 'paused' && prevMode === 'god');
+      if (mode === 'dying' || mode === 'over') pose = 'jump';
+      else if (inGod && god) { pose = god.t > 0.7 && hero.onGround ? 'kneel' : 'idle'; lean = kissLean(god); }
+      else if (watcher && watcher.t < WATCH_FREEZE && hero.onGround) pose = 'idle';
+      else if (hero.duck) pose = 'duck'; else if (!hero.onGround) pose = 'jump';
+      if (mode !== 'dying' && mode !== 'over') { ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(hero.x, GROUND + 1, 24 - Math.min(12, (GROUND - hero.y) / 15), 5, 0, 0, 7); ctx.fill(); }
+      ctx.save(); ctx.translate(hero.x, hero.y);
+      if (mode === 'dying' || mode === 'over') { ctx.translate(0, -50); ctx.rotate(hero.spin); ctx.translate(0, 50); }
+      if (invuln > 0 && Math.floor(invuln * 12) % 2 === 0) ctx.globalAlpha = 0.45;
+      drawHeroSprite(ctx, heroKey, pose, hero.t, lean);
+      ctx.restore();
+      if (god) drawGodHand(god);
+    }
+    for (const p of particles) {
+      ctx.globalAlpha = Math.max(0, 1 - p.t / p.life); ctx.fillStyle = p.color;
+      if (p.heart) heart(ctx, p.x, p.y, p.size); else { ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 7); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    if (god) drawGodBubbles(god);
+    if (watcher) drawWatcherBubble(watcher);
+    if (shout && mode === 'play') bubble(shout.text, hero.x + 40, hero.y - 150, 280, hero.x + 12, hero.y - 118, ST_SHOUT, Math.min(1, shout.t * 6, (2.2 - shout.t) * 4));
+    for (const f of floaters) {
+      const a = 1 - f.t / f.life;
+      ctx.save(); ctx.globalAlpha = a; ctx.font = `${f.size}px ${FONT_D}`; ctx.textAlign = 'center';
+      ctx.lineWidth = 4; ctx.strokeStyle = C.night; ctx.lineJoin = 'round';
+      ctx.strokeText(f.text, f.x, f.y - f.t * 40); ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y - f.t * 40);
+      ctx.restore();
+    }
+    if (mode !== 'menu' && mode !== 'splash') { drawHUD(); if (!god) drawCaption(); }
+  }
+  // ---------- menu previews ----------
+  const previews = [...document.querySelectorAll('[data-preview]')].map(cv => ({ cv, c: cv.getContext('2d'), key: cv.dataset.preview }));
+  let previewT = 0;
+  function renderPreviews(dt) {
+    if (menuOv.hidden) return;
+    previewT += dt;
+    for (const p of previews) {
+      const c = p.c, s = p.cv.width / 104;
+      c.setTransform(s, 0, 0, s, 0, 0);
+      const g = c.createLinearGradient(0, 0, 0, 104);
+      g.addColorStop(0, '#0f5fd6'); g.addColorStop(1, '#a7dcff');
+      c.fillStyle = g; c.fillRect(0, 0, 104, 104);
+      c.fillStyle = '#6fc22a'; c.fillRect(0, 92, 104, 12);
+      c.fillStyle = '#9be85a'; c.fillRect(0, 92, 104, 3);
+      c.save(); c.translate(52, 94); c.scale(0.68, 0.68);
+      const selected = p.key === heroKey;
+      const pose = selected && Math.sin(previewT * 1.4) > 0.6 ? 'jump' : 'run';
+      if (pose === 'jump') c.translate(0, -14);
+      drawHeroSprite(c, p.key, pose, previewT);
+      c.restore();
+    }
+  }
+
+  // ---------- loop ----------
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    update(dt); render(); renderPreviews(dt);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(t => { last = t; frame(t); });
+})();
+</script>
+</body>
