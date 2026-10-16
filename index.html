@@ -271,6 +271,7 @@
     cube: ['Спънат от кутия. Оказа се избирателна урна. Иронично.'],
     bar: ['Спънат от златно кюлче. Най-богатото падане в кариерата на {n}.'],
     bag: ['Торба пари в лицето. Първото дарение за кампанията.'],
+    press: ['Спънат от журналист. Най-накрая отговори на въпрос.', 'Камерата засне всичко. Утре {n} е водеща новина.', 'Микрофон в устата. Първото интервю без PR-а.'],
   };
   const HERO_TAG = {
     cape: ['Наметалото оцеля. Капитанът не.', 'Наметалото вече си търси нов кандидат.'],
@@ -287,6 +288,13 @@
     'ПАЗЕТЕ КИРИЛИЦАТА!': ['{n} пази кирилицата. Латиницата е в паника.', 'Кирилицата е спасена. Правописът още не.'],
     'НЕ НА АРАБСКИТЕ ЦИФРИ!': ['Разстоянието вече е в римски цифри. Победа.', 'Арабските цифри са изгонени. Сметките пак не излизат.'],
     'НИЕ СМЕ ЗА МИР!': ['{n} е за мир. Дроновете не са информирани.', 'Мир! Каза го, докато бяга от дронове.'],
+  };
+  const PRESS = {
+    any: ['Коментар?!', 'Ще се кандидатирате ли пак?', 'Кой финансира кампанията?', 'Само един въпрос!', 'Вярно ли е, че…', 'Защо бягате?', 'Кога ще има правителство?'],
+    cape: ['А наметалото декларирано ли е?', 'Защо мълчите, Капитане?'],
+    hair: ['Колко лак е за сметка на бюджета?', 'Къде ви е смелостта, мадам?'],
+    narr: ['Журналисти! {n} пак не е подготвил отговори.', 'Пресата идва. {n} предпочита дроновете.'],
+    dodge: ['БЕЗ КОМЕНТАР!', 'НЕ СЕГА!', 'ПИШЕТЕ НА PR-А!'],
   };
   const OVER_TITLES = ['Загуба на <em>изборите</em>', 'Герой? <em>Уж.</em>', 'Балотаж <em>с гравитацията</em>', 'ЦИК обяви: <em>край</em>'];
 
@@ -462,18 +470,28 @@
   // ---------- spawning ----------
   function spawn() {
     const r = Math.random();
-    if (r < 0.42) {
+    if (r < 0.36) {
       const kind = pick(['low', 'head', 'head', 'low', 'high']);
       const y = kind === 'low' ? GROUND - 28 : kind === 'head' ? GROUND - 58 : GROUND - 175;
       obstacles.push({ type: 'drone', kind, x: W + 40, y, baseY: y, extra: rand(50, 140), t: rand(0, 6) });
-    } else if (r < 0.82) {
+    } else if (r < 0.62) {
       obstacles.push({ type: 'ship', x: W + 40, extra: rand(110, 210), t: 0 });
       if (time > 25 && Math.random() < 0.35) obstacles.push({ type: 'drone', kind: 'high', x: W + 100, y: GROUND - 180, baseY: GROUND - 180, extra: 150, t: 0 });
+    } else if (r < 0.86) {
+      spawnPress();
     } else {
       obstacles.push({ type: 'cube', x: W + 40, extra: 0, t: 0 });
     }
     if (Math.random() < 0.4) spawnRings();
     nextSpawn = clamp(rand(0.95, 1.8) * (540 / speed), 0.75, 2.4);
+  }
+  // journalists walk toward the hero shouting a question; sometimes a reporter brings a cameraman
+  function spawnPress() {
+    const qs = PRESS.any.concat(PRESS[heroKey]);
+    const first = Math.random() < 0.5 ? 'mic' : 'cam';
+    obstacles.push({ type: 'press', kind: first, x: W + 40, extra: rand(20, 60), t: 0, q: pick(qs), lead: true });
+    if (time > 15 && Math.random() < 0.35) obstacles.push({ type: 'press', kind: first === 'mic' ? 'cam' : 'mic', x: W + 84, extra: 0, t: 0 });
+    if (Math.random() < 0.3) narrate(pick(PRESS.narr));
   }
   function spawnRings() {
     const arc = Math.random() < 0.5, x0 = W + 260;
@@ -597,6 +615,7 @@
       case 'drone': return { x: o.x - 22, y: o.y - 9, w: 44, h: 18 };
       case 'ship': return { x: o.x - 4, y: GROUND - 40, w: 126, h: 40 };
       case 'cube': return { x: o.x + 2, y: GROUND - 52, w: 42, h: 52 };
+      case 'press': return { x: o.x - 14, y: GROUND - 76, w: 30, h: 76 };
       case 'bar': return { x: o.x, y: o.y, w: 32, h: 14 };
       case 'bag': return { x: o.x - 13, y: o.y - 13, w: 26, h: 26 };
     }
@@ -687,6 +706,7 @@
         if (invuln <= 0 && hit(hb, ob)) { die(o.type); break; }
         if (!o.passed && ob.x + ob.w < hb.x) {
           o.passed = true;
+          if (o.type === 'press' && o.lead && Math.random() < 0.6) floater(pick(PRESS.dodge), hero.x + 10, hero.y - 150, '#ffe9a8', 17);
           const gapV = ob.y - (hb.y + hb.h), gapUnder = hb.y - (ob.y + ob.h);
           if ((gapV >= 0 && gapV < 22) || (gapUnder >= 0 && gapUnder < 12)) {
             sfx.near(); floater(pick(['КЪСМЕТ', 'НА КОСЪМ', 'СЛУЧАЙНО УМЕНИЕ']), hero.x, hero.y - 130, C.lime, 16);
@@ -850,6 +870,36 @@
     ctx.fillStyle = 'rgba(160,225,255,0.85)'; poly(ctx, [44, -42, 56, -58, 74, -58, 70, -42]); ctx.fill();
     ctx.fillStyle = '#2b2b2b'; ctx.fillRect(120, -52, 10, 32);
     ctx.restore();
+  }
+  const ST_PRESS = { bg: '#fffbe6', border: '#2b2b3a', fg: '#1b1b24' };
+  function drawPress(o) {
+    const sw = Math.sin(o.t * 10), SK = '#e2b48c';
+    ctx.save(); ctx.translate(o.x, GROUND);
+    limb(ctx, [-5, -30, -5 + sw * 6, -1], '#2b2b3a', 7);
+    limb(ctx, [5, -30, 5 - sw * 6, -1], '#2b2b3a', 7);
+    ctx.fillStyle = '#111'; ctx.fillRect(-10 + sw * 6, -4, 9, 4); ctx.fillRect(1 - sw * 6, -4, 9, 4);
+    ctx.fillStyle = o.kind === 'mic' ? '#c23b4a' : '#3a6e8f'; rr(ctx, -14, -62, 28, 34, 6); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(-11, -53, 20, 9);
+    ctx.fillStyle = '#111'; ctx.font = `7px ${FONT_D}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ПРЕСА', -1, -48.5);
+    ctx.fillStyle = SK; ctx.beginPath(); ctx.arc(0, -71, 9, 0, 7); ctx.fill();
+    ctx.fillStyle = o.kind === 'mic' ? '#7a3b1c' : '#2a2a2a'; ctx.beginPath(); ctx.ellipse(2, -76, 10, 6, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.fillRect(-6, -73, 2.5, 2.5);
+    ctx.fillStyle = '#7a2a2a'; ctx.beginPath(); ctx.arc(-6, -66, 2.2, 0, 7); ctx.fill();
+    if (o.kind === 'mic') {
+      limb(ctx, [-8, -56, -20, -60, -28, -68], SK, 5);
+      limb(ctx, [-28, -68, -34, -73], '#333', 4);
+      ctx.fillStyle = '#ffcc33'; ctx.fillRect(-38, -77, 8, 6);
+      ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-38, -79, 4.5, 0, 7); ctx.fill();
+    } else {
+      limb(ctx, [-8, -56, -16, -66, -14, -74], SK, 5);
+      ctx.fillStyle = '#222'; rr(ctx, -30, -88, 36, 18, 3); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.fillRect(-38, -84, 10, 10);
+      ctx.fillStyle = '#5ab8ff'; ctx.beginPath(); ctx.arc(-38, -79, 4, 0, 7); ctx.fill();
+      ctx.fillStyle = '#444'; ctx.fillRect(-18, -93, 16, 4);
+      if (Math.sin(o.t * 9) > 0) { ctx.fillStyle = '#ff3355'; ctx.beginPath(); ctx.arc(0, -84, 2.4, 0, 7); ctx.fill(); }
+    }
+    ctx.restore();
+    if (o.lead && o.t < 1.8 && mode === 'play') bubble(o.q, o.x - 10, GROUND - 104, 200, o.x - 20, GROUND - 90, ST_PRESS, Math.min(1, o.t * 5, (1.8 - o.t) * 4));
   }
   function drawCube(o) {
     const img = IMG.cube;
@@ -1088,7 +1138,7 @@
     if (watcher) drawWatcher(watcher);
     if (mode !== 'menu' && mode !== 'splash') {
       for (const r of rings) drawRing(r);
-      for (const o of obstacles) ({ drone: drawDrone, ship: drawShip, cube: drawCube, bar: drawBar, bag: drawBag })[o.type](o);
+      for (const o of obstacles) ({ drone: drawDrone, ship: drawShip, cube: drawCube, press: drawPress, bar: drawBar, bag: drawBag })[o.type](o);
       if (boss) {
         drawBoss(boss, hero.t);
         ctx.font = `12px ${FONT_D}`; ctx.textAlign = 'center'; ctx.fillStyle = C.gold; ctx.strokeStyle = C.night; ctx.lineWidth = 4;
