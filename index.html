@@ -83,12 +83,31 @@
   .touch button.jump { background: var(--gold); }
   @media (pointer: coarse) { .touch { display: grid; } }
 
+  .tip { position: absolute; z-index: 5; width: min(340px, 40%); display: flex; flex-direction: column; gap: 8px; text-align: left;
+    background: var(--paper); color: var(--night); border: 3px solid var(--night); border-radius: 8px; padding: 12px 14px; box-shadow: 4px 4px 0 var(--neon); }
+  .tip[data-place="right"] { transform: translate(18px, -50%); }
+  .tip[data-place="left"] { transform: translate(calc(-100% - 18px), -50%); }
+  .tip[data-place="lefttop"] { transform: translate(calc(-100% - 18px), -24px); }
+  .tip::before { content: ""; position: absolute; width: 14px; height: 14px; background: var(--paper); border: 3px solid var(--night); top: 50%; }
+  .tip[data-place="right"]::before { left: -10px; transform: translateY(-50%) rotate(45deg); border-top-color: transparent; border-right-color: transparent; }
+  .tip[data-place="left"]::before, .tip[data-place="lefttop"]::before { right: -10px; transform: translateY(-50%) rotate(45deg); border-bottom-color: transparent; border-left-color: transparent; }
+  .tip[data-place="lefttop"]::before { top: 30px; }
+  .tip .count { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #6a5bb0; }
+  .tip h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 19px; line-height: 1.1; color: var(--night); }
+  .tip p.text { margin: 0; font-size: 16px; line-height: 1.3; }
+  .tip .tip-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .tip .tip-row span { display: flex; gap: 6px; }
+  .tip button { font: 700 14px var(--body); letter-spacing: 0.04em; padding: 7px 12px; border-radius: 4px; border: 2px solid var(--night); cursor: pointer; background: transparent; color: var(--night); }
+  .tip button.next { font-family: var(--display); font-weight: 400; background: var(--gold); }
+  .tip button.skip { border-color: transparent; text-decoration: underline; padding-inline: 2px; }
   .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 16px; }
   kbd { font: 700 13px var(--body); color: var(--paper); background: var(--dusk); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 4px; padding: 1px 7px; margin-right: 4px; }
 
   @media (max-width: 760px) {
     .overlay { position: static; background: var(--night); border-top: 3px solid var(--paper); padding-block: 18px; }
     .overlay.splash { position: absolute; border-top: 0; }
+    .tip { position: static; width: auto; transform: none !important; border-width: 3px 0 0; border-radius: 0; box-shadow: none; }
+    .tip::before { display: none; }
   }
   @media (max-width: 520px) { .heroes { grid-template-columns: minmax(0, 1fr); } }
   @media (prefers-reduced-motion: reduce) { .card, .btn { transition: none; } .blink { animation: none; } }
@@ -141,8 +160,21 @@
           </span>
         </button>
       </div>
-      <button class="btn" id="startBtn" type="button">Към урните!</button>
+      <div class="row">
+        <button class="btn" id="startBtn" type="button">Към урните!</button>
+        <button class="btn ghost" id="introBtn" type="button">Кой кой е?</button>
+      </div>
       <p class="hint">Натисни 1 или 2 за избор, Enter за старт</p>
+    </div>
+
+    <div class="tip" id="tip" hidden role="dialog" aria-live="polite">
+      <p class="count" id="tipCount"></p>
+      <h3 id="tipTitle"></h3>
+      <p class="text" id="tipText"></p>
+      <div class="tip-row">
+        <button class="skip" id="tipSkip" type="button">Пропусни</button>
+        <span><button id="tipBack" type="button">Назад</button><button class="next" id="tipNext" type="button">Напред</button></span>
+      </div>
     </div>
 
     <div class="overlay" id="pausedOv" hidden>
@@ -165,6 +197,7 @@
       <div class="row">
         <button class="btn" id="retryBtn" type="button">Пак на избори</button>
         <button class="btn ghost" id="swapBtn" type="button">Смени кандидата</button>
+        <button class="btn ghost" id="introBtn2" type="button">Кой кой е?</button>
       </div>
       <p class="hint">Enter за нови избори</p>
     </div>
@@ -394,6 +427,12 @@
 
   addEventListener('keydown', e => {
     const k = e.key;
+    if (mode === 'intro') {
+      if (k === 'Enter' || k === ' ' || k === 'ArrowRight') { e.preventDefault(); introNext(); }
+      else if (k === 'ArrowLeft') { e.preventDefault(); introBack(); }
+      else if (k === 'Escape') { e.preventDefault(); introEnd(); }
+      return;
+    }
     if (mode === 'splash') { if (k === 'Enter' || k === ' ') { e.preventDefault(); toMenu(); } return; }
     if (mode === 'menu') {
       if (k === '1') selectHero('cape');
@@ -417,7 +456,7 @@
     if (k === 'ArrowLeft' || k === 'a' || k === 'A') keys.left = false;
     if (k === 'ArrowRight' || k === 'd' || k === 'D') keys.right = false;
   });
-  cvs.addEventListener('pointerdown', e => { if (mode === 'play') { e.preventDefault(); jump(); } });
+  cvs.addEventListener('pointerdown', e => { if (mode === 'play') { e.preventDefault(); jump(); } else if (mode === 'intro') introNext(); });
   cvs.addEventListener('pointerup', releaseJump);
   const jumpBtn = document.getElementById('jumpBtn'), duckBtn = document.getElementById('duckBtn');
   jumpBtn.addEventListener('pointerdown', e => { e.preventDefault(); sfx.init(); jump(); });
@@ -443,16 +482,74 @@
     c.addEventListener('click', () => selectHero(c.dataset.hero));
     c.addEventListener('dblclick', () => { selectHero(c.dataset.hero); startGame(); });
   });
-  function startGame() {
+  function startGame(withIntro) {
     if (mode !== 'menu' && mode !== 'over') return;
     sfx.init(); blur();
     reset();
     menuOv.hidden = true; overOv.hidden = true; pausedOv.hidden = true;
+    let seen = false;
+    try { seen = localStorage.getItem('hero-allegedly-intro') === '1'; } catch (e) {}
+    if (withIntro === true || !seen) { startIntro(); return; }
     mode = 'play';
     narrate(pick(NARR.start), true);
   }
-  $('startBtn').addEventListener('click', startGame);
-  $('retryBtn').addEventListener('click', startGame);
+  $('startBtn').addEventListener('click', () => startGame());
+  $('retryBtn').addEventListener('click', () => startGame());
+  $('introBtn').addEventListener('click', () => startGame(true));
+  $('introBtn2').addEventListener('click', () => startGame(true));
+
+  // ---------- onboarding tour: the world waits while each character is introduced ----------
+  // a = tooltip anchor in canvas px, place = which side of the anchor the tooltip sits, spot = spotlight ellipse
+  const INTRO = [
+    { who: 'hero', title: 'Това си ти', place: 'right', a: [236, GROUND - 70], spot: [180, GROUND - 62, 70, 82],
+      text: 'Скок: Space или ↑ (на телефон: бутон „Скок“). Пак във въздуха за още един скок. Клякане: ↓. Движение: ← →. Героизмът не е включен.' },
+    { who: 'drone', title: 'Дрон с руско знаме', place: 'right', a: [552, GROUND - 58], spot: [520, GROUND - 66, 46, 40],
+      text: 'Лети ниско, на нивото на главата или високо. Над ниските скачай, под средните клякай. От високите просто не скачай като луд.' },
+    { who: 'ship', title: 'Моторница с украинско знаме', place: 'left', a: [496, GROUND - 40], spot: [585, GROUND - 46, 92, 58],
+      text: 'Лодка. На колела. По суша. Не питай. Идва по-бързо от всичко останало, така че я прескачай навреме.' },
+    { who: 'press', title: 'Журналисти', place: 'left', a: [492, GROUND - 52], spot: [540, GROUND - 46, 62, 60],
+      text: 'Микрофон, камера и неудобни въпроси. Прескачай ги. Така правят всички кандидати.' },
+    { who: 'cube', title: 'Избирателна урна', place: 'left', a: [494, GROUND - 30], spot: [523, GROUND - 30, 40, 40],
+      text: 'Не мърда, не говори и пак успява да те спъне. Прескачай.' },
+    { who: 'boss', title: 'Наркобос', place: 'left', a: [612, GROUND - 60], spot: [720, GROUND - 76, 130, 92],
+      text: 'Хвърля златни кюлчета по земята (скачай) и торби пари на нивото на главата (клякай). Дарения за кампанията, разбира се.' },
+    { who: 'rings', title: 'Гласове', place: 'left', a: [450, GROUND - 100], spot: [555, GROUND - 110, 120, 78],
+      text: 'Събирай ги. Не струват нищо, но изглеждат добре в отчета. Наблюдателят ги брои.' },
+    { who: 'god', title: 'Бог', place: 'left', a: [404, 160], spot: [600, 190, 210, 175],
+      text: 'Появява се, когато Той реши. Всичко спира, ти коленичиш и целуваш светите ръце. Рейтингът пада. Не можеш да направиш нищо. Като в живота.' },
+    { who: 'watcher', title: 'Международен наблюдател', place: 'left', a: [596, 190], spot: [790, 230, 200, 150],
+      text: 'Идва без покана. Докато говори, замръзваш. После събери поне 2 гласа: тогава си „одобрен“ (+5%). Иначе е недоволен (−10%).' },
+    { who: 'hud', title: 'Рейтинг', place: 'lefttop', a: [748, 30], spot: [870, 46, 110, 40],
+      text: 'Пада от Бог и от наблюдателя. На 0% си под бариерата, но играта продължава. Като в истинската политика. Успех!' },
+  ];
+  let introStep = 0, introT = 0;
+  const tipEl = $('tip');
+  function startIntro() { mode = 'intro'; introStep = 0; introT = 0; showTip(); }
+  function showTip() {
+    const st = INTRO[introStep];
+    tipEl.hidden = false;
+    tipEl.dataset.place = st.place;
+    tipEl.style.left = (st.a[0] / W * 100) + '%';
+    tipEl.style.top = (st.a[1] / H * 100) + '%';
+    $('tipCount').textContent = `Кой кой е · ${introStep + 1} / ${INTRO.length}`;
+    $('tipTitle').textContent = st.title;
+    $('tipText').textContent = st.text;
+    $('tipBack').hidden = introStep === 0;
+    $('tipNext').textContent = introStep === INTRO.length - 1 ? 'Към урните!' : 'Напред';
+    introT = 0;
+  }
+  function introNext() { if (introStep < INTRO.length - 1) { introStep++; showTip(); sfx.tone(880, 0, 0.05, 'square', 0.03); } else introEnd(); }
+  function introBack() { if (introStep > 0) { introStep--; showTip(); } }
+  function introEnd() {
+    tipEl.hidden = true; blur();
+    try { localStorage.setItem('hero-allegedly-intro', '1'); } catch (e) {}
+    particles = [];
+    mode = 'play';
+    narrate(pick(NARR.start), true);
+  }
+  $('tipNext').addEventListener('click', introNext);
+  $('tipBack').addEventListener('click', introBack);
+  $('tipSkip').addEventListener('click', introEnd);
   $('swapBtn').addEventListener('click', toMenu);
   $('resumeBtn').addEventListener('click', togglePause);
   $('pauseBtn').addEventListener('click', togglePause);
@@ -639,6 +736,12 @@
   function update(dt) {
     if (mode === 'paused') return;
     if (mode === 'menu' || mode === 'splash') { scroll += 160 * dt; return; }
+    if (mode === 'intro') {
+      introT += dt;
+      for (const p of particles) { p.t += dt; p.vy += p.grav * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
+      particles = particles.filter(p => p.t < p.life);
+      return;
+    }
     hero.t += dt;
     narrCooldown -= dt;
     if (caption) { caption.t += dt; if (caption.t > caption.life) caption = null; }
@@ -1150,7 +1253,7 @@
       const inGod = mode === 'god' || (mode === 'paused' && prevMode === 'god');
       if (mode === 'dying' || mode === 'over') pose = 'jump';
       else if (inGod && god) { pose = god.t > 0.7 && hero.onGround ? 'kneel' : 'idle'; lean = kissLean(god); }
-      else if (watcher && watcher.t < WATCH_FREEZE && hero.onGround) pose = 'idle';
+      else if (mode === 'intro' || (watcher && watcher.t < WATCH_FREEZE && hero.onGround)) pose = 'idle';
       else if (hero.duck) pose = 'duck'; else if (!hero.onGround) pose = 'jump';
       if (mode !== 'dying' && mode !== 'over') { ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(hero.x, GROUND + 1, 24 - Math.min(12, (GROUND - hero.y) / 15), 5, 0, 0, 7); ctx.fill(); }
       ctx.save(); ctx.translate(hero.x, hero.y);
@@ -1159,6 +1262,7 @@
       drawHeroSprite(ctx, heroKey, pose, hero.t, lean);
       ctx.restore();
       if (god) drawGodHand(god);
+      if (mode === 'intro') drawIntro();
     }
     for (const p of particles) {
       ctx.globalAlpha = Math.max(0, 1 - p.t / p.life); ctx.fillStyle = p.color;
@@ -1178,6 +1282,28 @@
     }
     if (mode !== 'menu' && mode !== 'splash') { drawHUD(); if (!god) drawCaption(); }
   }
+  function drawIntro() {
+    const st = INTRO[introStep], t = introT + 2;
+    switch (st.who) {
+      case 'drone': drawDrone({ x: 520, y: GROUND - 58, t }); break;
+      case 'ship': drawShip({ x: 524, t }); break;
+      case 'press': drawPress({ kind: 'mic', x: 520, t }); drawPress({ kind: 'cam', x: 566, t: t + 0.3 }); break;
+      case 'cube': drawCube({ x: 500 }); break;
+      case 'boss': drawBar({ x: 640, y: GROUND - 14 }); drawBag({ x: 700, y: GROUND - 60, t }); drawBoss({ x: 790, state: 'throw', arm: 0 }, t); break;
+      case 'rings': for (let i = 0; i < 5; i++) drawRing({ x: 470 + i * 42, y: GROUND - 60 - Math.sin(i / 4 * Math.PI) * 100, t: t + i * 0.3 }); break;
+      case 'god': { const g = { t: 2, cx: 600, kissed: false }; drawGodLight(g); drawGod(g); break; }
+      case 'watcher': drawWatcher({ t: 2 }); break;
+    }
+    // dim everything except the spotlight
+    const [sx, sy, rx, ry] = st.spot, pulse = 1 + Math.sin(introT * 4) * 0.03;
+    ctx.save();
+    ctx.fillStyle = 'rgba(12, 8, 32, 0.62)';
+    ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.ellipse(sx, sy, rx * pulse, ry * pulse, 0, 0, Math.PI * 2, true); ctx.fill('evenodd');
+    ctx.strokeStyle = C.gold; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.lineDashOffset = -introT * 30;
+    ctx.beginPath(); ctx.ellipse(sx, sy, rx * pulse, ry * pulse, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
   // ---------- menu previews ----------
   const previews = [...document.querySelectorAll('[data-preview]')].map(cv => ({ cv, c: cv.getContext('2d'), key: cv.dataset.preview }));
   let previewT = 0;
